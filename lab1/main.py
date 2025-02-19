@@ -3,6 +3,8 @@ from decimal import Decimal, Context, ROUND_HALF_EVEN
 from prettytable import PrettyTable
 import time
 import matplotlib.pyplot as plt
+import tracemalloc
+from typing import Tuple, Callable
 
 # ------------------------------------------------------------------------------------------
 
@@ -147,44 +149,108 @@ def _fib(n):
 
 # Methods for collecting the statistics regarding the algorithms
 
-# Register execution time for an implementation when computing a specific 'n' term
-def measure_execution_time(func, n):
+# Measures both execution time and peak memory usage for a function, adn returns (execution_time, peak_memory_usage_kb)
+def measure_execution_stats(func: Callable, n: int) -> Tuple[float, float]:
+    # Start memory tracking
+    tracemalloc.start()
+
+    # Measure execution time
     start_time = time.time()
     func(n)
-    end_time = time.time()
-    return end_time - start_time
+    execution_time = time.time() - start_time
 
-# Method to create a comparison table
-def create_fibonacci_comparison_table(n_terms_list, methods_dict):
-    # Create table
-    table = PrettyTable()
+    # Get peak memory usage
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    # Convert peak memory to KB for readability
+    peak_memory_kb = peak / 1024
+
+    return execution_time, peak_memory_kb
+
+# Creates two comparison tables: one for time and one for memory usage
+def create_fibonacci_comparison_tables(n_terms_list: list, methods_dict: dict) -> Tuple[PrettyTable, PrettyTable]:
+    # Create tables
+    time_table = PrettyTable()
+    memory_table = PrettyTable()
 
     # Set up headers
     headers = ["Method / n"] + [str(n) for n in n_terms_list]
-    table.field_names = headers
+    time_table.field_names = headers
+    memory_table.field_names = headers
 
-    # Set alignment
-    table.align["Method / n"] = "l"  # Left align method names
-    for n in n_terms_list:
-        table.align[str(n)] = "r"  # Right align numbers
+    # Set alignment for both tables
+    for table in [time_table, memory_table]:
+        table.align["Method / n"] = "l"  # Left align method names
+        for n in n_terms_list:
+            table.align[str(n)] = "r"  # Right align numbers
 
     # Add rows for each method
     for method_num, (func, method_name) in methods_dict.items():
-        row = [f"{method_num}. {method_name}"]
+        time_row = [f"{method_num}. {method_name}"]
+        memory_row = [f"{method_num}. {method_name}"]
 
-        # Measure time for each n
+        # Measure time and memory for each n
         for n in n_terms_list:
             try:
-                execution_time = measure_execution_time(func, n)
-                row.append(f"{execution_time:.6f}")
+                execution_time, peak_memory = measure_execution_stats(func, n)
+                time_row.append(f"{execution_time:.6f}")
+                memory_row.append(f"{peak_memory:.2f}")
             except (RecursionError, MemoryError) as e:
-                row.append("Error")
+                time_row.append("Error")
+                memory_row.append("Error")
             except Exception as e:
-                row.append(f"Error: {str(e)}")
+                time_row.append(f"Error: {str(e)}")
+                memory_row.append(f"Error: {str(e)}")
 
-        table.add_row(row)
+        time_table.add_row(time_row)
+        memory_table.add_row(memory_row)
 
-    return table
+    return time_table, memory_table
+
+# Plots memory usage comparison for all methods
+def plot_memory_comparison(table: PrettyTable, type_list_n_terms: str, save_plot: bool = False):
+    n_terms, methods_data = extract_data_from_table(table)
+
+    plt.figure(figsize=(12, 8))
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+
+    has_valid_points = False
+    min_memory = float('inf')
+    max_memory = float('-inf')
+
+    for (method_name, memory_values), color in zip(methods_data.items(), colors):
+        valid_points = [(n, m) for n, m in zip(n_terms, memory_values) if m is not None]
+        if valid_points:
+            has_valid_points = True
+            valid_n, valid_memory = zip(*valid_points)
+            plt.plot(valid_n, valid_memory, 'o-', label=method_name, color=color)
+
+            min_memory = min(min_memory, min(valid_memory))
+            max_memory = max(max_memory, max(valid_memory))
+
+    if not has_valid_points:
+        print("No valid memory data points found for any method")
+        plt.close()
+        return
+
+    plt.title('Memory Usage Comparison of Fibonacci Methods')
+    plt.xlabel(f'n, from {type_list_n_terms} list')
+    plt.ylabel('Peak Memory Usage (KB)')
+    plt.grid(True, alpha=0.8)
+    plt.grid(which='minor', linestyle=':', linewidth=0.6)
+    plt.minorticks_on()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    if min_memory > 0 and max_memory / min_memory > 100:
+        plt.yscale('log')
+
+    plt.tight_layout()
+
+    if save_plot:
+        plt.savefig('fibonacci_memory_comparison.png', bbox_inches='tight')
+
+    plt.show()
 
 # Method to extract the computed data from tables, so it will be used to plot the graphs
 def extract_data_from_table(table):
@@ -315,42 +381,51 @@ methods = {
 low_n_terms = [5, 7, 10, 12, 15, 17, 20, 22, 25, 27, 30, 32, 35]#, 37, 40, 42, 45]
 medium_n_terms = [1000, 1259, 1995, 2512, 3162, 3981, 5012, 6310, 7943, 10000, 12569, 15420, 18000, 23000, 25544, 30000, 33000, 35000, 40000]
 high_n_terms = [42000, 50000, 60000, 72000, 84000, 95000, 105000, 117000, 124000, 140000, 160000, 170000, 190000, 220000, 250000, 300000, 350000, 400000, 450000, 500000]
-sys.setrecursionlimit(99999)
+sys.setrecursionlimit(999999)
 
 # For low 'n' terms:
-table_low = create_fibonacci_comparison_table(low_n_terms, methods)
-print("Comparison for Low N Terms:")
-print(table_low)
+time_table_low, memory_table_low = create_fibonacci_comparison_tables(low_n_terms, methods)
+print("\nTime (s) Comparison for Low N Terms:")
+print(time_table_low)
+print("\nMemory (KB) Comparison for Low N Terms:")
+print(memory_table_low)
 
-# Plot single method using table data
+# Plot single method using table data for time
 for implementation in methods.values():
-    plot_single_method_from_table(table_low, implementation[1], "low")
+    plot_single_method_from_table(time_table_low, implementation[1], "low")
+    #plot_single_method_from_table(memory_table_low, implementation[1], "low (Memory)")
 
 # Plot all methods comparison using table data
-plot_all_methods_comparison_from_table(table_low, "low")
-
+plot_all_methods_comparison_from_table(time_table_low, "low")
+plot_memory_comparison(time_table_low, "low")
 
 # For medium 'n' terms:
 methods_ex_recursive = {k: v for k, v in methods.items() if k != 1}
-table_medium = create_fibonacci_comparison_table(medium_n_terms, methods_ex_recursive)
-print("Comparison for Medium N Terms:")
-print(table_medium)
+time_table_medium, memory_table_medium = create_fibonacci_comparison_tables(medium_n_terms, methods_ex_recursive)
+print("\nTime (s) Comparison for Medium N Terms:")
+print(time_table_medium)
+print("\nMemory (KB) Comparison for Medium N Terms:")
+print(memory_table_medium)
 
 # Plot single method using table data
 for implementation in methods_ex_recursive.values():
-    plot_single_method_from_table(table_medium, implementation[1], "medium")
+    plot_single_method_from_table(time_table_medium, implementation[1], "medium")
 
 # Plot all methods comparison using table data
-plot_all_methods_comparison_from_table(table_medium, "medium")
+plot_all_methods_comparison_from_table(time_table_medium, "medium")
+plot_memory_comparison(memory_table_medium, "medium")
 
 # For high 'n' terms:
-table_high = create_fibonacci_comparison_table(high_n_terms, methods_ex_recursive)
-print("Comparison for High N Terms:")
-print(table_high)
+time_table_high, memory_table_high = create_fibonacci_comparison_tables(high_n_terms, methods_ex_recursive)
+print("\nTime (s) Comparison for High N Terms:")
+print(time_table_high)
+print("\nMemory (KB) Comparison for High N Terms:")
+print(memory_table_high)
 
 # Plot single method using table data
 for implementation in methods_ex_recursive.values():
-    plot_single_method_from_table(table_high, implementation[1], "high")
+    plot_single_method_from_table(time_table_high, implementation[1], "high")
 
 # Plot all methods comparison using table data
-plot_all_methods_comparison_from_table(table_high, "high")
+plot_all_methods_comparison_from_table(time_table_high, "high")
+plot_memory_comparison(memory_table_high, "high")
