@@ -1,6 +1,10 @@
+import sys
 from decimal import Decimal, Context, ROUND_HALF_EVEN
 from prettytable import PrettyTable
 import time
+import matplotlib.pyplot as plt
+
+# ------------------------------------------------------------------------------------------
 
 # Auxiliary setup
 
@@ -25,14 +29,21 @@ def multiply(mat1, mat2):
 
 # Performs matrix exponentiation
 def power(mat1, n):
+    if n <= 1:
+        return
+
     # Initialize helper matrix
     mat2 = [[1, 1],
             [1, 0]]
 
+    power(mat1, n // 2)
+    multiply(mat1, mat1)
+
     # Recursively compute mat1^(n // 2)
-    for i in range(2, n + 1):
+    if n % 2 != 0:
         multiply(mat1, mat2)
 
+# ------------------------------------------------------------------------------------------
 
 # Methods to find 'n'th term of Fibonacci
 
@@ -132,6 +143,7 @@ def _fib(n):
         else:
             return d, c + d
 
+# ------------------------------------------------------------------------------------------
 
 # Methods for collecting the statistics regarding the algorithms
 
@@ -174,7 +186,121 @@ def create_fibonacci_comparison_table(n_terms_list, methods_dict):
 
     return table
 
+# Method to extract the computed data from tables, so it will be used to plot the graphs
+def extract_data_from_table(table):
+    # Extract n terms from headers (skip first column which is "Method / n")
+    n_terms = [int(header) for header in table.field_names[1:]]
 
+    methods_data = {}
+    # Process each row
+    for row in table.rows:
+        # Extract method name (remove the number prefix)
+        method_name = row[0].split('. ')[1]
+        # Convert execution times to float, handle 'Error' values
+        times = []
+        for time_str in row[1:]:
+            try:
+                times.append(float(time_str))
+            except ValueError:
+                times.append(None)  # Use None for error values
+        methods_data[method_name] = times
+
+    return n_terms, methods_data
+
+# Method used to plot the graph for a specified implementation
+def plot_single_method_from_table(table, method_name, type_list_n_terms, save_plot=False):
+    n_terms, methods_data = extract_data_from_table(table)
+
+    if method_name not in methods_data:
+        print(f"Method {method_name} not found in table data")
+        return
+
+    # Filter out None values (errors)
+    times = methods_data[method_name]
+    valid_points = [(n, t) for n, t in zip(n_terms, times) if t is not None]
+    if not valid_points:
+        print(f"No valid data points for {method_name}")
+        return
+
+    valid_n, valid_times = zip(*valid_points)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(valid_n, valid_times, 'o-', label=method_name)
+
+    plt.title(f'Execution Time {method_name}')
+    plt.xlabel(f'n from {type_list_n_terms} list')
+    plt.ylabel('Execution Time (s)')
+    plt.grid(True, alpha=0.8)
+    plt.grid(which='minor', linestyle=':', linewidth=0.6)
+    plt.minorticks_on()
+    plt.legend()
+
+    # Check for valid time values before deciding on log scale
+    min_time = min(valid_times)
+    max_time = max(valid_times)
+
+    # Use logarithmic scale if there's high variance in times and no zero values
+    if min_time > 0 and max_time / min_time > 100:
+        plt.yscale('log')
+
+    if save_plot:
+        plt.savefig(f'fibonacci_{method_name.lower().replace(" ", "_")}.png')
+
+    plt.show()
+
+# Method used to plot all the data regarding each implementation into a single graph
+def plot_all_methods_comparison_from_table(table, type_list_n_terms, save_plot=False):
+    n_terms, methods_data = extract_data_from_table(table)
+
+    plt.figure(figsize=(12, 8))
+
+    # Colors for different methods
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+
+    # Keep track of whether we have any valid data points
+    has_valid_points = False
+    min_time = float('inf')
+    max_time = float('-inf')
+
+    # Plot each method
+    for (method_name, times), color in zip(methods_data.items(), colors):
+        # Filter out None values (errors)
+        valid_points = [(n, t) for n, t in zip(n_terms, times) if t is not None]
+        if valid_points:
+            has_valid_points = True
+            valid_n, valid_times = zip(*valid_points)
+            plt.plot(valid_n, valid_times, 'o-', label=method_name, color=color)
+
+            # Update min and max times
+            min_time = min(min_time, min(valid_times))
+            max_time = max(max_time, max(valid_times))
+
+    if not has_valid_points:
+        print("No valid data points found for any method")
+        plt.close()
+        return
+
+    plt.title('Comparison of Fibonacci Methods')
+    plt.xlabel(f'n from {type_list_n_terms} list')
+    plt.ylabel('Execution Time (s)')
+    plt.grid(True, alpha=0.8)
+    plt.grid(which='minor', linestyle=':', linewidth=0.6)
+    plt.minorticks_on()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # Use logarithmic scale only if we have valid non-zero times with high variance
+    if min_time > 0 and max_time / min_time > 100:
+        plt.yscale('log')
+
+    # Adjust layout to prevent legend cutoff
+    plt.tight_layout()
+
+    if save_plot:
+        plt.savefig('fibonacci_methods_comparison.png', bbox_inches='tight')
+
+    plt.show()
+
+# ------------------------------------------------------------------------------------------
 
 methods = {
     1: (recursive, "Recursive"),
@@ -188,8 +314,30 @@ methods = {
 
 low_n_terms = [5, 7, 10, 12, 15, 17, 20, 22, 25, 27, 30, 32, 35]#, 37, 40, 42, 45]
 medium_n_terms = [501, 631, 794, 1000, 1259, 1995, 2512, 3162, 3981, 5012, 6310, 7943, 10000, 12569, 15420, 18000, 23000, 25544, 30000]
+sys.setrecursionlimit(99999)
 
 # For low 'n' terms:
 table_low = create_fibonacci_comparison_table(low_n_terms, methods)
 print("Comparison for Low N Terms:")
 print(table_low)
+
+# Plot single method using table data
+for implementation in methods.values():
+    plot_single_method_from_table(table_low, implementation[1], "low")
+
+# Plot all methods comparison using table data
+plot_all_methods_comparison_from_table(table_low, "low")
+
+
+# For medium 'n' terms:
+methods_ex_recursive = {k: v for k, v in methods.items() if k != 1}
+table_medium = create_fibonacci_comparison_table(medium_n_terms, methods_ex_recursive)
+print("Comparison for Medium N Terms:")
+print(table_medium)
+
+# Plot single method using table data
+for implementation in methods_ex_recursive.values():
+    plot_single_method_from_table(table_medium, implementation[1], "medium")
+
+# Plot all methods comparison using table data
+plot_all_methods_comparison_from_table(table_medium, "medium")
