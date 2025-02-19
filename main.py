@@ -1,4 +1,6 @@
 from decimal import Decimal, Context, ROUND_HALF_EVEN
+from prettytable import PrettyTable
+import time
 
 # Auxiliary setup
 
@@ -130,5 +132,64 @@ def _fib(n):
         else:
             return d, c + d
 
-low_n_terms = [5, 7, 10, 12, 15, 17, 20, 22, 25, 27, 30, 32, 35, 37, 40, 42, 45]
+
+# Methods for collecting the statistics regarding the algorithms
+
+# Register execution time for an implementation when computing a specific 'n' term
+def measure_execution_time(func, n):
+    start_time = time.time()
+    func(n)
+    end_time = time.time()
+    return end_time - start_time
+
+# Method to create a comparison table
+def create_fibonacci_comparison_table(n_terms_list, methods_dict):
+    # Create table
+    table = PrettyTable()
+
+    # Set up headers
+    headers = ["Method / n"] + [str(n) for n in n_terms_list]
+    table.field_names = headers
+
+    # Set alignment
+    table.align["Method / n"] = "l"  # Left align method names
+    for n in n_terms_list:
+        table.align[str(n)] = "r"  # Right align numbers
+
+    # Add rows for each method
+    for method_num, (func, method_name) in methods_dict.items():
+        row = [f"{method_num}. {method_name}"]
+
+        # Measure time for each n
+        for n in n_terms_list:
+            try:
+                execution_time = measure_execution_time(func, n)
+                row.append(f"{execution_time:.6f}")
+            except (RecursionError, MemoryError) as e:
+                row.append("Error")
+            except Exception as e:
+                row.append(f"Error: {str(e)}")
+
+        table.add_row(row)
+
+    return table
+
+
+
+methods = {
+    1: (recursive, "Recursive"),
+    2: (dynamic_programming, "Dynamic Programming"),
+    3: (matrix_power, "Matrix Power"),
+    4: (binet_formula, "Binet Formula"),
+    5: (memo_recursive, "Memoization"),
+    6: (space_optimized, "Space Optimized"),
+    7: (fast_doubling, "Fast Doubling")
+}
+
+low_n_terms = [5, 7, 10, 12, 15, 17, 20, 22, 25, 27, 30, 32, 35]#, 37, 40, 42, 45]
 medium_n_terms = [501, 631, 794, 1000, 1259, 1995, 2512, 3162, 3981, 5012, 6310, 7943, 10000, 12569, 15420, 18000, 23000, 25544, 30000]
+
+# For low 'n' terms:
+table_low = create_fibonacci_comparison_table(low_n_terms, methods)
+print("Comparison for Low N Terms:")
+print(table_low)
