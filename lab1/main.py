@@ -227,8 +227,8 @@ def plot_single_method_from_table(table, method_name, type_list_n_terms, save_pl
     plt.figure(figsize=(10, 6))
     plt.plot(valid_n, valid_times, 'o-', label=method_name)
 
-    plt.title(f'Execution Time {method_name}')
-    plt.xlabel(f'n from {type_list_n_terms} list')
+    plt.title(f'Execution Time: {method_name}')
+    plt.xlabel(f'n, from {type_list_n_terms} list')
     plt.ylabel('Execution Time (s)')
     plt.grid(True, alpha=0.8)
     plt.grid(which='minor', linestyle=':', linewidth=0.6)
@@ -281,7 +281,7 @@ def plot_all_methods_comparison_from_table(table, type_list_n_terms, save_plot=F
         return
 
     plt.title('Comparison of Fibonacci Methods')
-    plt.xlabel(f'n from {type_list_n_terms} list')
+    plt.xlabel(f'n, from {type_list_n_terms} list')
     plt.ylabel('Execution Time (s)')
     plt.grid(True, alpha=0.8)
     plt.grid(which='minor', linestyle=':', linewidth=0.6)
@@ -313,7 +313,8 @@ methods = {
 }
 
 low_n_terms = [5, 7, 10, 12, 15, 17, 20, 22, 25, 27, 30, 32, 35]#, 37, 40, 42, 45]
-medium_n_terms = [501, 631, 794, 1000, 1259, 1995, 2512, 3162, 3981, 5012, 6310, 7943, 10000, 12569, 15420, 18000, 23000, 25544, 30000]
+medium_n_terms = [1000, 1259, 1995, 2512, 3162, 3981, 5012, 6310, 7943, 10000, 12569, 15420, 18000, 23000, 25544, 30000, 33000, 35000, 40000]
+high_n_terms = [42000, 50000, 60000, 72000, 84000, 95000, 105000, 117000, 124000, 140000, 160000, 170000, 190000, 220000, 250000, 300000, 350000, 400000, 450000, 500000]
 sys.setrecursionlimit(99999)
 
 # For low 'n' terms:
@@ -341,3 +342,15 @@ for implementation in methods_ex_recursive.values():
 
 # Plot all methods comparison using table data
 plot_all_methods_comparison_from_table(table_medium, "medium")
+
+# For high 'n' terms:
+table_high = create_fibonacci_comparison_table(high_n_terms, methods_ex_recursive)
+print("Comparison for High N Terms:")
+print(table_high)
+
+# Plot single method using table data
+for implementation in methods_ex_recursive.values():
+    plot_single_method_from_table(table_high, implementation[1], "high")
+
+# Plot all methods comparison using table data
+plot_all_methods_comparison_from_table(table_high, "high")
