@@ -149,6 +149,31 @@ def _fib(n):
 
 # Methods for collecting the statistics regarding the algorithms
 
+def measure_time_only(func: Callable, n: int) -> float:
+    """
+    Measures only execution time without any memory tracking or memo clearing
+    """
+    start_time = time.time()
+    func(n)
+    return time.time() - start_time
+
+
+def measure_memory_only(func: Callable, n: int) -> float:
+    """
+    Measures only memory usage in a clean environment
+    """
+    if func.__name__ == 'memo_recursive':
+        memo.clear()
+        memo[0] = 0
+        memo[1] = 1
+
+    tracemalloc.start()
+    func(n)
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    return peak / 1024
+
 # Measures both execution time and peak memory  usage for a function separately to avoid interference, returns (execution_time, peak_memory_usage_kb)
 def measure_execution_stats(func: Callable, n: int) -> Tuple[float, float]:
     # First measure execution time without memory tracking
@@ -179,49 +204,56 @@ def measure_execution_stats(func: Callable, n: int) -> Tuple[float, float]:
 
     return execution_time, peak_memory_kb
 
-# Creates two comparison tables: one for time and one for memory usage
+
 def create_fibonacci_comparison_tables(n_terms_list: list, methods_dict: dict) -> Tuple[PrettyTable, PrettyTable]:
-    # Create tables
+    """
+    Creates two comparison tables with separate time and memory measurements
+    """
     time_table = PrettyTable()
     memory_table = PrettyTable()
 
-    # Set up headers
     headers = ["Method / n"] + [str(n) for n in n_terms_list]
     time_table.field_names = headers
     memory_table.field_names = headers
 
-    # Set alignment for both tables
     for table in [time_table, memory_table]:
-        table.align["Method / n"] = "l"  # Left align method names
+        table.align["Method / n"] = "l"
         for n in n_terms_list:
-            table.align[str(n)] = "r"  # Right align numbers
+            table.align[str(n)] = "r"
 
-    # Add rows for each method
+    # First do all time measurements to benefit from memoization
+    time_rows = {}
     for method_num, (func, method_name) in methods_dict.items():
-        time_row = [f"{method_num}. {method_name}"]
-        memory_row = [f"{method_num}. {method_name}"]
+        row = [f"{method_num}. {method_name}"]
 
-        # Measure time and memory for each n
+        # Do all time measurements for this method
         for n in n_terms_list:
             try:
-                # Clear memo dictionary before each measurement if it's the memoization implementation
-                if func.__name__ == 'memo_recursive':
-                    memo.clear()
-                    memo[0] = 0
-                    memo[1] = 1
-
-                execution_time, peak_memory = measure_execution_stats(func, n)
-                time_row.append(f"{execution_time:.6f}")
-                memory_row.append(f"{peak_memory:.2f}")
+                execution_time = measure_time_only(func, n)
+                row.append(f"{execution_time:.6f}")
             except (RecursionError, MemoryError) as e:
-                time_row.append("Error")
-                memory_row.append("Error")
+                row.append("Error")
             except Exception as e:
-                time_row.append(f"Error: {str(e)}")
-                memory_row.append(f"Error: {str(e)}")
+                row.append(f"Error: {str(e)}")
 
-        time_table.add_row(time_row)
-        memory_table.add_row(memory_row)
+        time_rows[method_num] = row
+        time_table.add_row(row)
+
+    # Then do memory measurements separately
+    for method_num, (func, method_name) in methods_dict.items():
+        row = [f"{method_num}. {method_name}"]
+
+        # Do all memory measurements for this method
+        for n in n_terms_list:
+            try:
+                peak_memory = measure_memory_only(func, n)
+                row.append(f"{peak_memory:.2f}")
+            except (RecursionError, MemoryError) as e:
+                row.append("Error")
+            except Exception as e:
+                row.append(f"Error: {str(e)}")
+
+        memory_table.add_row(row)
 
     return time_table, memory_table
 
@@ -397,40 +429,40 @@ methods = {
 
 low_n_terms = [5, 7, 10, 12, 15, 17, 20, 22, 25, 27, 30, 32, 35]#, 37, 40, 42, 45]
 medium_n_terms = [1000, 1259, 1995, 2512, 3162, 3981, 5012, 6310, 7943, 10000, 12569, 15420, 18000, 23000, 25544, 30000, 33000, 35000, 40000]
-high_n_terms = [42000, 50000, 60000, 72000, 84000, 95000, 105000, 117000, 124000, 140000, 160000, 170000, 190000, 220000, 250000, 300000, 350000, 400000, 450000, 500000]
+high_n_terms = [0, 10000, 20000, 30000, 40000, 50000, 60000, 80000, 90000, 100000, 120000]
 sys.setrecursionlimit(999999)
 
-# For low 'n' terms:
-time_table_low, memory_table_low = create_fibonacci_comparison_tables(low_n_terms, methods)
-print("\nTime (s) Comparison for Low N Terms:")
-print(time_table_low)
-print("\nMemory (KB) Comparison for Low N Terms:")
-print(memory_table_low)
-
-# Plot single method using table data for time
-for implementation in methods.values():
-    plot_single_method_from_table(time_table_low, implementation[1], "low")
-    #plot_single_method_from_table(memory_table_low, implementation[1], "low (Memory)")
-
-# Plot all methods comparison using table data
-plot_all_methods_comparison_from_table(time_table_low, "low")
-plot_memory_comparison(memory_table_low, "low")
+# # For low 'n' terms:
+# time_table_low, memory_table_low = create_fibonacci_comparison_tables(low_n_terms, methods)
+# print("\nTime (s) Comparison for Low N Terms:")
+# print(time_table_low)
+# print("\nMemory (KB) Comparison for Low N Terms:")
+# print(memory_table_low)
+#
+# # Plot single method using table data for time
+# for implementation in methods.values():
+#     plot_single_method_from_table(time_table_low, implementation[1], "low")
+#     #plot_single_method_from_table(memory_table_low, implementation[1], "low (Memory)")
+#
+# # Plot all methods comparison using table data
+# plot_all_methods_comparison_from_table(time_table_low, "low")
+# plot_memory_comparison(memory_table_low, "low")
 
 # For medium 'n' terms:
 methods_ex_recursive = {k: v for k, v in methods.items() if k != 1}
-time_table_medium, memory_table_medium = create_fibonacci_comparison_tables(medium_n_terms, methods_ex_recursive)
-print("\nTime (s) Comparison for Medium N Terms:")
-print(time_table_medium)
-print("\nMemory (KB) Comparison for Medium N Terms:")
-print(memory_table_medium)
-
-# Plot single method using table data
-for implementation in methods_ex_recursive.values():
-    plot_single_method_from_table(time_table_medium, implementation[1], "medium")
-
-# Plot all methods comparison using table data
-plot_all_methods_comparison_from_table(time_table_medium, "medium")
-plot_memory_comparison(memory_table_medium, "medium")
+# time_table_medium, memory_table_medium = create_fibonacci_comparison_tables(medium_n_terms, methods_ex_recursive)
+# print("\nTime (s) Comparison for Medium N Terms:")
+# print(time_table_medium)
+# print("\nMemory (KB) Comparison for Medium N Terms:")
+# print(memory_table_medium)
+#
+# # Plot single method using table data
+# for implementation in methods_ex_recursive.values():
+#     plot_single_method_from_table(time_table_medium, implementation[1], "medium")
+#
+# # Plot all methods comparison using table data
+# plot_all_methods_comparison_from_table(time_table_medium, "medium")
+# plot_memory_comparison(memory_table_medium, "medium")
 
 # For high 'n' terms:
 time_table_high, memory_table_high = create_fibonacci_comparison_tables(high_n_terms, methods_ex_recursive)
