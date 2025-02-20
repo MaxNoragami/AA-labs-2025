@@ -149,22 +149,33 @@ def _fib(n):
 
 # Methods for collecting the statistics regarding the algorithms
 
-# Measures both execution time and peak memory usage for a function, adn returns (execution_time, peak_memory_usage_kb)
+# Measures both execution time and peak memory  usage for a function separately to avoid interference, returns (execution_time, peak_memory_usage_kb)
 def measure_execution_stats(func: Callable, n: int) -> Tuple[float, float]:
-    # Start memory tracking
-    tracemalloc.start()
-
-    # Measure execution time
+    # First measure execution time without memory tracking
     start_time = time.time()
     func(n)
     execution_time = time.time() - start_time
 
-    # Get peak memory usage
+    # Clear memo dictionary for memoization implementation to ensure fresh start
+    if func.__name__ == 'memo_recursive':
+        memo.clear()
+        memo[0] = 0
+        memo[1] = 1
+
+    # Then measure memory in a separate run
+    tracemalloc.start()
+    func(n)
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
 
     # Convert peak memory to KB for readability
     peak_memory_kb = peak / 1024
+
+    # Clear memo dictionary again after memory measurement
+    if func.__name__ == 'memo_recursive':
+        memo.clear()
+        memo[0] = 0
+        memo[1] = 1
 
     return execution_time, peak_memory_kb
 
@@ -193,6 +204,12 @@ def create_fibonacci_comparison_tables(n_terms_list: list, methods_dict: dict) -
         # Measure time and memory for each n
         for n in n_terms_list:
             try:
+                # Clear memo dictionary before each measurement if it's the memoization implementation
+                if func.__name__ == 'memo_recursive':
+                    memo.clear()
+                    memo[0] = 0
+                    memo[1] = 1
+
                 execution_time, peak_memory = measure_execution_stats(func, n)
                 time_row.append(f"{execution_time:.6f}")
                 memory_row.append(f"{peak_memory:.2f}")
@@ -397,7 +414,7 @@ for implementation in methods.values():
 
 # Plot all methods comparison using table data
 plot_all_methods_comparison_from_table(time_table_low, "low")
-plot_memory_comparison(time_table_low, "low")
+plot_memory_comparison(memory_table_low, "low")
 
 # For medium 'n' terms:
 methods_ex_recursive = {k: v for k, v in methods.items() if k != 1}
