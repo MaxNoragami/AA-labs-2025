@@ -315,7 +315,15 @@ methods = {
 low_n_terms = [5, 7, 10, 12, 15, 17, 20, 22, 25, 27, 30, 32, 35, 37, 40, 42, 45]
 medium_n_terms = [501, 631, 794, 1000, 1259, 1585, 1995, 2512, 3162, 3981, 5012, 6310, 7943, 10000, 12589, 15849]
 high_n_terms = [0, 4000, 8000,  24000, 31000,50000, 60000, 72000, 84000, 95000, 105000, 117000, 124000, 140000, 160000, 170000, 190000, 220000, 250000, 300000, 350000, 400000, 450000, 500000]
+
 sys.setrecursionlimit(99999)
+
+binet_result = binet_formula(120)
+fast_result = fast_doubling(120)
+
+print(f"Binet Formula: {binet_result}")
+print(f"Fast Doubling: {fast_result}")
+print(f"Error: {binet_result - fast_result}")
 
 # For low 'n' terms:
 # table_low = create_fibonacci_comparison_table(low_n_terms, methods)
@@ -331,7 +339,7 @@ sys.setrecursionlimit(99999)
 
 
 # For medium 'n' terms:
-methods_ex_recursive = {k: v for k, v in methods.items() if k != 1}
+# methods_ex_recursive = {k: v for k, v in methods.items() if k != 1}
 # table_medium = create_fibonacci_comparison_table(medium_n_terms, methods_ex_recursive)
 # print("Comparison for Medium N Terms:")
 # print(table_medium)
@@ -344,13 +352,13 @@ methods_ex_recursive = {k: v for k, v in methods.items() if k != 1}
 # plot_all_methods_comparison_from_table(table_medium, "medium")
 
 # # For high 'n' terms:
-table_high = create_fibonacci_comparison_table(high_n_terms, methods_ex_recursive)
-print("Comparison for High N Terms:")
-print(table_high)
-
-# Plot single method using table data
-for implementation in methods_ex_recursive.values():
-    plot_single_method_from_table(table_high, implementation[1], "high")
-
-# Plot all methods comparison using table data
-plot_all_methods_comparison_from_table(table_high, "high")
+# table_high = create_fibonacci_comparison_table(high_n_terms, methods_ex_recursive)
+# print("Comparison for High N Terms:")
+# print(table_high)
+#
+# # Plot single method using table data
+# for implementation in methods_ex_recursive.values():
+#     plot_single_method_from_table(table_high, implementation[1], "high")
+#
+# # Plot all methods comparison using table data
+# plot_all_methods_comparison_from_table(table_high, "high")
