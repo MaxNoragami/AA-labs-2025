@@ -180,23 +180,27 @@ class InputBox:
 
 # ----- Sorting algorithm generators (yield array state and indices to highlight + finalized indices) -----
 
-def insertion_sort_visual(arr):
-    finalized = [0]  # First element is already sorted
-    for i in range(1, len(arr)):
+def insertion_sort_visual(arr, left=0, right=None):
+    if right is None:
+        right = len(arr) - 1
+
+    for i in range(left + 1, right + 1):
         key = arr[i]
         j = i - 1
-        while j >= 0 and arr[j] > key:
+        while j >= left and arr[j] > key:
             arr[j + 1] = arr[j]
+            # Only mark finalized if sorting the entire array
+            finalized = list(range(i)) if left == 0 and right == len(arr) - 1 else []
             yield arr, (j, j + 1), finalized.copy()
             j -= 1
         arr[j + 1] = key
-        # Mark the entire sorted subarray (from index 0 to i) as finalized.
-        finalized = list(range(i + 1))
+        # Update finalized after insertion
+        finalized = list(range(i + 1)) if left == 0 and right == len(arr) - 1 else []
         yield arr, (j + 1, i), finalized.copy()
-    # All elements are finalized at the end.
-    yield arr, None, list(range(len(arr)))
 
-
+    # Final yield for full array
+    if left == 0 and right == len(arr) - 1:
+        yield arr, None, list(range(len(arr)))
 
 def quick_sort_visual(arr):
     finalized = []
@@ -319,6 +323,57 @@ def merge_sort_visual(arr):
         finalized.extend(missing)
         yield arr, None, finalized
 
+# For TimSort
+def merge_visual(arr, left, mid, right):
+    merged = []
+    i = left
+    j = mid + 1
+
+    while i <= mid and j <= right:
+        if arr[i] <= arr[j]:
+            merged.append(arr[i])
+            i += 1
+        else:
+            merged.append(arr[j])
+            j += 1
+        yield arr, (i if i <= mid else None, j if j <= right else None), []
+
+    while i <= mid:
+        merged.append(arr[i])
+        i += 1
+        yield arr, (i, None), []
+
+    while j <= right:
+        merged.append(arr[j])
+        j += 1
+        yield arr, (None, j), []
+
+    for k, val in enumerate(merged):
+        arr[left + k] = val
+        yield arr, (left + k, None), []
+
+
+def tim_sort_visual(arr):
+    min_run = 32
+    n = len(arr)
+
+    # Sort runs with insertion sort
+    for start in range(0, n, min_run):
+        end = min(start + min_run - 1, n - 1)
+        yield from insertion_sort_visual(arr, start, end)
+
+    # Merge runs
+    size = min_run
+    while size < n:
+        for left in range(0, n, 2 * size):
+            mid = min(n - 1, left + size - 1)
+            right = min(n - 1, left + 2 * size - 1)
+            if mid < right:
+                yield from merge_visual(arr, left, mid, right)
+        size *= 2
+
+    # Mark all indices as finalized
+    yield arr, None, list(range(n))
 
 # ----- Array presets and custom generation -----
 
@@ -363,7 +418,7 @@ button_height = 40
 slider_width = 240
 
 # Dropdowns in the top row
-algo_options = ["Quick Sort", "Merge Sort", "Heap Sort", "Insertion Sort"]
+algo_options = ["Quick Sort", "Merge Sort", "Heap Sort", "Insertion Sort", "Tim Sort"]
 preset_options = ["Random", "Nearly Sorted", "Reversed", "Few Unique"]
 algorithm_dropdown = Dropdown(ui_margin, 100, dropdown_width, dropdown_height, algo_options, font)
 preset_dropdown = Dropdown(ui_margin + dropdown_width + 20, 100, dropdown_width, dropdown_height, preset_options, font)
@@ -451,6 +506,8 @@ while True:
                 sorting_generator = heap_sort_visual(current_array)
             elif algo == "Insertion Sort":
                 sorting_generator = insertion_sort_visual(current_array)
+            elif algo == "Tim Sort":
+                sorting_generator = tim_sort_visual(current_array)
             sorting_in_progress = True
             finalized_indices = []
             sorting_complete = False
