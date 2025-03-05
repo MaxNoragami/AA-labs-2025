@@ -375,6 +375,8 @@ highlight_indices_list = [None]
 finalized_indices_list = [[]]
 sorting_complete = [False]
 sorting_in_progress = False
+start_ticks = []
+end_ticks = []
 
 # ----- Main Loop -----
 while True:
@@ -440,6 +442,9 @@ while True:
                 highlight_indices_list = [None]
                 finalized_indices_list = [[]]
                 sorting_complete = [False]
+            # Add timing initialization
+            start_ticks = [pygame.time.get_ticks()] * len(arrays)
+            end_ticks = [None] * len(arrays)
             sorting_in_progress = True
 
         if reset_button.is_clicked(event):
@@ -472,8 +477,10 @@ while True:
                     arrays[i], highlight_indices_list[i], finalized_indices_list[i] = next(generators[i])
                     if len(finalized_indices_list[i]) == len(arrays[i]):
                         sorting_complete[i] = True
+                        end_ticks[i] = pygame.time.get_ticks()  # Record end time
                 except StopIteration:
                     sorting_complete[i] = True
+                    end_ticks[i] = pygame.time.get_ticks()  # Record end time
                     highlight_indices_list[i] = None
                     finalized_indices_list[i] = list(range(len(arrays[i])))
         pygame.time.delay(speed_slider.value)
@@ -531,6 +538,18 @@ while True:
                 if sorting_complete[idx]:
                     color = gruvbox["blue"]
                 pygame.draw.rect(screen, color, (x, y, max(1, bar_width - 1), bar_height))
+        # Draw timing overlay if sorting is complete
+        if sorting_complete[idx] and end_ticks[idx] is not None:
+            elapsed_time = (end_ticks[idx] - start_ticks[idx]) / 1000.0  # Convert to seconds
+            time_text = f"Time: {elapsed_time:.2f} s"
+            # Create semi-transparent rectangle
+            overlay = pygame.Surface((section_width, vis_height), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 128))  # Black with 50% opacity
+            screen.blit(overlay, (section_x, vis_top))
+            # Render and center the time text
+            text_surf = font.render(time_text, True, gruvbox["fg"])
+            text_rect = text_surf.get_rect(center=(section_x + section_width / 2, vis_top + vis_height / 2))
+            screen.blit(text_surf, text_rect)
 
     # Draw UI elements
     algorithm_dropdown.draw(screen)
