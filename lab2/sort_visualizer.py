@@ -379,6 +379,7 @@ def generate_array(preset, n, min_val, max_val):
         return [random.uniform(min_val, max_val) for _ in range(n)]
 
 # ----- Pygame Setup -----
+sys.setrecursionlimit(99999)
 infoObject = pygame.display.Info()
 WIDTH, HEIGHT = infoObject.current_w, infoObject.current_h
 screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
