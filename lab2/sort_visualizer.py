@@ -378,18 +378,24 @@ def tim_sort_visual(arr):
 # ----- Array presets and custom generation -----
 
 def generate_array(preset, n, min_val, max_val):
+    # Ensure min_val is less than or equal to max_val
+    min_val, max_val = min(min_val, max_val), max(min_val, max_val)
+
     if preset == "Random":
         return [random.randint(min_val, max_val) for _ in range(n)]
     elif preset == "Nearly Sorted":
-        arr = list(range(min_val, min_val + n))
+        # Use a scaled range preserving proportions of original min and max
+        arr = [int(min_val + (max_val - min_val) * (i / (n-1))) for i in range(n)]
         for _ in range(max(1, n // 10)):
             i, j = random.sample(range(n), 2)
             arr[i], arr[j] = arr[j], arr[i]
         return arr
     elif preset == "Reversed":
-        return list(range(min_val + n, min_val, -1))
+        # Create reversed array using the full specified range
+        return list(range(max_val, min_val - 1, -((max_val - min_val) // (n-1) or 1)))[:n]
     elif preset == "Few Unique":
-        choices = [random.randint(min_val, max_val) for _ in range(5)]
+        # Ensure choices are within the specified range
+        choices = [random.randint(min_val, max_val) for _ in range(min(5, max_val - min_val + 1))]
         return [random.choice(choices) for _ in range(n)]
     else:
         return [random.randint(min_val, max_val) for _ in range(n)]
