@@ -18,8 +18,6 @@ gruvbox = {
 }
 
 # ----- UI ELEMENTS -----
-# (Existing UI classes: Dropdown, Button, Slider, InputBox remain unchanged)
-
 class Dropdown:
     def __init__(self, x, y, w, h, options, font):
         self.rect = pygame.Rect(x, y, w, h)
@@ -155,9 +153,33 @@ class InputBox:
         surface.blit(self.txt_surface, (self.rect.x + 5, self.rect.y + 5))
         pygame.draw.rect(surface, self.color, self.rect, 2)
 
-# ----- Sorting Algorithm Generators -----
-# (Existing generators remain unchanged)
+class Checkbox:
+    def __init__(self, x, y, size, font, label):
+        self.rect = pygame.Rect(x, y, size, size)
+        self.size = size
+        self.font = font
+        self.label = label
+        self.checked = False
+        self.color = gruvbox["fg"]
+        self.bg_color = gruvbox["bg"]
 
+    def draw(self, surface):
+        pygame.draw.rect(surface, self.bg_color, self.rect)
+        pygame.draw.rect(surface, self.color, self.rect, 2)
+        if self.checked:
+            inner_rect = self.rect.inflate(-4, -4)
+            pygame.draw.rect(surface, self.color, inner_rect)
+        label_surf = self.font.render(self.label, True, gruvbox["fg"])
+        label_x = self.rect.right + 10
+        label_y = self.rect.y + (self.size - label_surf.get_height()) // 2
+        surface.blit(label_surf, (label_x, label_y))
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.rect.collidepoint(event.pos):
+                self.checked = not self.checked
+
+# ----- Sorting Algorithm Generators -----
 def insertion_sort_visual(arr, left=0, right=None):
     if right is None:
         right = len(arr) - 1
@@ -319,20 +341,42 @@ def tim_sort_visual(arr):
 def generate_array(preset, n, min_val, max_val):
     min_val, max_val = min(min_val, max_val), max(min_val, max_val)
     if preset == "Random":
-        return [random.randint(min_val, max_val) for _ in range(n)]
+        return [random.uniform(min_val, max_val) for _ in range(n)]
     elif preset == "Nearly Sorted":
-        arr = [int(min_val + (max_val - min_val) * (i / (n-1))) for i in range(n)]
+        arr = [min_val + (max_val - min_val) * (i / (n-1)) for i in range(n)]
         for _ in range(max(1, n // 10)):
             i, j = random.sample(range(n), 2)
             arr[i], arr[j] = arr[j], arr[i]
         return arr
     elif preset == "Reversed":
-        return list(range(max_val, min_val - 1, -((max_val - min_val) // (n-1) or 1)))[:n]
+        return [max_val - (max_val - min_val) * (i / (n-1)) for i in range(n)]
     elif preset == "Few Unique":
-        choices = [random.randint(min_val, max_val) for _ in range(min(5, max_val - min_val + 1))]
+        num_unique = min(5, int(max_val - min_val + 1))
+        choices = [random.uniform(min_val, max_val) for _ in range(num_unique)]
         return [random.choice(choices) for _ in range(n)]
+    elif preset == "Already Sorted":
+        return [min_val + (max_val - min_val) * (i / (n-1)) for i in range(n)]
+    elif preset == "Sawtooth":
+        arr = []
+        for i in range(n):
+            if i % 2 == 0:
+                arr.append(min_val + random.uniform(0, 0.1) * (max_val - min_val))
+            else:
+                arr.append(max_val - random.uniform(0, 0.1) * (max_val - min_val))
+        return arr
+    elif preset == "All Equal Except One":
+        base = (min_val + max_val) / 2
+        arr = [base] * n
+        if n > 0:
+            outlier_index = random.randint(0, n-1)
+            arr[outlier_index] = random.choice([min_val, max_val])
+        return arr
+    elif preset == "Very Close":
+        base = (min_val + max_val) / 2
+        epsilon = 0.001
+        return [base + random.uniform(-epsilon, epsilon) for _ in range(n)]
     else:
-        return [random.randint(min_val, max_val) for _ in range(n)]
+        return [random.uniform(min_val, max_val) for _ in range(n)]
 
 # ----- Pygame Setup -----
 infoObject = pygame.display.Info()
@@ -353,23 +397,24 @@ button_height = 40
 slider_width = 240
 
 algo_options = ["Quick Sort", "Merge Sort", "Heap Sort", "Insertion Sort", "Tim Sort", "All"]
-preset_options = ["Random", "Nearly Sorted", "Reversed", "Few Unique"]
+preset_options = ["Random", "Nearly Sorted", "Reversed", "Few Unique",
+                  "Already Sorted", "Sawtooth", "All Equal Except One", "Very Close"]
 algorithm_dropdown = Dropdown(ui_margin, 100, dropdown_width, dropdown_height, algo_options, font)
 preset_dropdown = Dropdown(ui_margin + dropdown_width + 20, 100, dropdown_width, dropdown_height, preset_options, font)
 sort_button = Button(ui_margin + 2 * (dropdown_width + 20), 100, button_width, button_height, "SORT", font)
 reset_button = Button(ui_margin + 2 * (dropdown_width + 20) + button_width + 20, 100, button_width, button_height, "RESET", font)
 speed_slider = Slider(ui_margin + 2 * (dropdown_width + 20) + 2 * (button_width + 20), 100, slider_width, button_height, 5, 100, 30, "Delay (ms)", font)
 num_elements_box = InputBox(ui_margin, 50, input_width, input_height, "50", font, "Array Size")
-min_value_box = InputBox(ui_margin + input_width + 20, 50, input_width, input_height, "-10", font, "Min Value")
-max_value_box = InputBox(ui_margin + 2 * (input_width + 20), 50, input_width, input_height, "100", font, "Max Value")
+min_value_box = InputBox(ui_margin + input_width + 20, 50, input_width, input_height, "-10.0", font, "Min Value")
+max_value_box = InputBox(ui_margin + 2 * (input_width + 20), 50, input_width, input_height, "100.0", font, "Max Value")
 exit_button = Button(WIDTH - button_width - ui_margin, ui_margin, button_width, button_height, "EXIT", font)
-
+checkbox = Checkbox(ui_margin, 150, 20, font, "Show Values")
 # Global state for sorting
 all_mode = False
 arrays = [generate_array(preset_options[preset_dropdown.selected],
                          int(num_elements_box.text),
-                         int(min_value_box.text),
-                         int(max_value_box.text))]
+                         float(min_value_box.text),
+                         float(max_value_box.text))]
 generators = []
 highlight_indices_list = [None]
 finalized_indices_list = [[]]
@@ -391,6 +436,7 @@ while True:
         num_elements_box.handle_event(event)
         min_value_box.handle_event(event)
         max_value_box.handle_event(event)
+        checkbox.handle_event(event)
 
         if exit_button.is_clicked(event):
             pygame.quit()
@@ -399,10 +445,10 @@ while True:
         if sort_button.is_clicked(event) and not sorting_in_progress:
             try:
                 n = int(num_elements_box.text)
-                min_val = int(min_value_box.text)
-                max_val = int(max_value_box.text)
+                min_val = float(min_value_box.text)
+                max_val = float(max_value_box.text)
             except:
-                n, min_val, max_val = 50, -10, 100
+                n, min_val, max_val = 50, -10.0, 100.0
 
             max_elements = WIDTH - 2 * ui_margin
             if n > max_elements:
@@ -442,7 +488,6 @@ while True:
                 highlight_indices_list = [None]
                 finalized_indices_list = [[]]
                 sorting_complete = [False]
-            # Add timing initialization
             start_ticks = [pygame.time.get_ticks()] * len(arrays)
             end_ticks = [None] * len(arrays)
             sorting_in_progress = True
@@ -452,10 +497,10 @@ while True:
             all_mode = False
             try:
                 n = int(num_elements_box.text)
-                min_val = int(min_value_box.text)
-                max_val = int(max_value_box.text)
+                min_val = float(min_value_box.text)
+                max_val = float(max_value_box.text)
             except:
-                n, min_val, max_val = 50, -10, 100
+                n, min_val, max_val = 50, -10.0, 100.0
             max_elements = WIDTH - 2 * ui_margin
             if n > max_elements:
                 n = max_elements
@@ -477,10 +522,10 @@ while True:
                     arrays[i], highlight_indices_list[i], finalized_indices_list[i] = next(generators[i])
                     if len(finalized_indices_list[i]) == len(arrays[i]):
                         sorting_complete[i] = True
-                        end_ticks[i] = pygame.time.get_ticks()  # Record end time
+                        end_ticks[i] = pygame.time.get_ticks()
                 except StopIteration:
                     sorting_complete[i] = True
-                    end_ticks[i] = pygame.time.get_ticks()  # Record end time
+                    end_ticks[i] = pygame.time.get_ticks()
                     highlight_indices_list[i] = None
                     finalized_indices_list[i] = list(range(len(arrays[i])))
         pygame.time.delay(speed_slider.value)
@@ -502,7 +547,6 @@ while True:
 
     for idx in range(len(arrays)):
         section_x = ui_margin + idx * (section_width + spacing)
-        # Draw algorithm name
         if all_mode:
             algo_name = algo_options[idx]
         else:
@@ -511,7 +555,6 @@ while True:
         name_rect = name_surf.get_rect(center=(section_x + section_width / 2, vis_top - 20))
         screen.blit(name_surf, name_rect)
 
-        # Draw bar graph
         arr = arrays[idx]
         n = len(arr)
         if n > 0:
@@ -538,20 +581,21 @@ while True:
                 if sorting_complete[idx]:
                     color = gruvbox["blue"]
                 pygame.draw.rect(screen, color, (x, y, max(1, bar_width - 1), bar_height))
-        # Draw timing overlay if sorting is complete
+                if checkbox.checked:  # Add this block
+                    val_text = font.render(f"{val:.2f}", True, gruvbox["fg"])
+                    text_x = x + (bar_width - val_text.get_width()) / 2
+                    text_y = y - val_text.get_height() - 5 if val >= 0 else y + bar_height + 5
+                    screen.blit(val_text, (text_x, text_y))
         if sorting_complete[idx] and end_ticks[idx] is not None:
-            elapsed_time = (end_ticks[idx] - start_ticks[idx]) / 1000.0  # Convert to seconds
+            elapsed_time = (end_ticks[idx] - start_ticks[idx]) / 1000.0
             time_text = f"Time: {elapsed_time:.2f} s"
-            # Create semi-transparent rectangle
             overlay = pygame.Surface((section_width, vis_height), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 128))  # Black with 50% opacity
+            overlay.fill((0, 0, 0, 128))
             screen.blit(overlay, (section_x, vis_top))
-            # Render and center the time text
             text_surf = font.render(time_text, True, gruvbox["fg"])
             text_rect = text_surf.get_rect(center=(section_x + section_width / 2, vis_top + vis_height / 2))
             screen.blit(text_surf, text_rect)
 
-    # Draw UI elements
     algorithm_dropdown.draw(screen)
     preset_dropdown.draw(screen)
     sort_button.draw(screen)
@@ -561,6 +605,7 @@ while True:
     min_value_box.draw(screen)
     max_value_box.draw(screen)
     exit_button.draw(screen)
+    checkbox.draw(screen)
 
     pygame.display.flip()
     clock.tick(60)
