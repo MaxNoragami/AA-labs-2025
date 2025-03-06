@@ -197,6 +197,34 @@ def insertion_sort_visual(arr, left=0, right=None):
     if left == 0 and right == len(arr) - 1:
         yield arr, None, list(range(len(arr)))
 
+def binary_insertion_sort_visual(arr, left=0, right=None):
+    if right is None:
+        right = len(arr) - 1
+    for i in range(left + 1, right + 1):
+        key = arr[i]
+        # Binary search to find the insertion position
+        low = left
+        high = i
+        while low < high:
+            mid = low + (high - low) // 2
+            if arr[mid] < key:
+                low = mid + 1
+            else:
+                high = mid
+        pos = low
+        # Shift elements from pos to i-1 to the right
+        for j in range(i - 1, pos - 1, -1):
+            arr[j + 1] = arr[j]
+            finalized = list(range(left, i + 1)) if left == 0 and right == len(arr) - 1 else []
+            yield arr, (j, j + 1), finalized.copy()
+        # Insert the key at pos
+        arr[pos] = key
+        finalized = list(range(left, i + 1)) if left == 0 and right == len(arr) - 1 else []
+        yield arr, (pos, i), finalized.copy()
+    # If sorting the entire array, yield with all finalized
+    if left == 0 and right == len(arr) - 1:
+        yield arr, None, list(range(len(arr)))
+
 def quick_sort_visual(arr):
     finalized = []
     stack = [(0, len(arr) - 1)]
@@ -297,44 +325,66 @@ def merge_sort_visual(arr):
         finalized.extend(missing)
         yield arr, None, finalized
 
-def merge_visual(arr, left, mid, right):
-    merged = []
-    i = left
-    j = mid + 1
-    while i <= mid and j <= right:
-        if arr[i] <= arr[j]:
-            merged.append(arr[i])
+
+def merge_visual(left, right):
+    result = []
+    i, j = 0, 0
+    while i < len(left) and j < len(right):
+        if left[i] < right[j]:
+            result.append(left[i])
+            # Yield the current state; use None for indices since we're working with copies
+            yield result, (i if i < len(left) else None, j if j < len(right) else None), []
             i += 1
         else:
-            merged.append(arr[j])
+            result.append(right[j])
+            yield result, (i if i < len(left) else None, j if j < len(right) else None), []
             j += 1
-        yield arr, (i if i <= mid else None, j if j <= right else None), []
-    while i <= mid:
-        merged.append(arr[i])
+    # Remaining elements
+    while i < len(left):
+        result.append(left[i])
+        yield result, (i, None), []
         i += 1
-        yield arr, (i, None), []
-    while j <= right:
-        merged.append(arr[j])
+    while j < len(right):
+        result.append(right[j])
+        yield result, (None, j), []
         j += 1
-        yield arr, (None, j), []
-    for k, val in enumerate(merged):
-        arr[left + k] = val
-        yield arr, (left + k, None), []
+    yield result, None, []
+
 
 def tim_sort_visual(arr):
     min_run = 32
     n = len(arr)
-    for start in range(0, n, min_run):
-        end = min(start + min_run - 1, n - 1)
-        yield from insertion_sort_visual(arr, start, end)
+
+    # Sort individual subarrays of size min_run
+    for i in range(0, n, min_run):
+        end = min(i + min_run - 1, n - 1)
+        yield from binary_insertion_sort_visual(arr, i, end)
+
     size = min_run
     while size < n:
-        for left in range(0, n, 2 * size):
-            mid = min(n - 1, left + size - 1)
-            right = min(n - 1, left + 2 * size - 1)
-            if mid < right:
-                yield from merge_visual(arr, left, mid, right)
+        for start in range(0, n, size * 2):
+            midpoint = start + size
+            end = min((start + size * 2 - 1), (n - 1))
+            if midpoint <= end:  # Ensure there’s something to merge
+                left = arr[start:midpoint]
+                right = arr[midpoint:end + 1]
+
+                # Merge using the visual merge function
+                merge_gen = merge_visual(left, right)
+                merged = []
+                for merged_state, indices, finalized in merge_gen:
+                    merged = merged_state
+                    # Yield the original array state; indices are illustrative
+                    yield arr, indices, []
+
+                # Copy merged result back to arr, yielding each step
+                for k, val in enumerate(merged):
+                    arr[start + k] = val
+                    yield arr, (start + k, None), []
+
         size *= 2
+
+    # Final yield with all indices finalized
     yield arr, None, list(range(n))
 
 # ----- Array Presets and Custom Generation -----
