@@ -1798,7 +1798,7 @@ const GraphVisualizer: React.FC = () => {
                                         {bfsState?.queue.map((nodeId, index) => (
                                             <span key={`queue-${nodeId}`}>
                                                 <span className="font-bold">{graph.nodes.find(n => n.id === nodeId)?.label || nodeId}</span>
-                                                {index < bfsState.queue.length - 1 && <span className="mx-1">→</span>}
+                                                {index < bfsState.queue.length - 1 && <span className="mx-1">←</span>}
                                             </span>
                                         ))}
                                     </span>
