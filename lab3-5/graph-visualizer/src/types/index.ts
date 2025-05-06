@@ -1,6 +1,6 @@
 // Define all shared types for the application
 export type GraphType = 'complete' | 'dense' | 'sparse' | 'tree' | 'connected' | 'disconnected' | 'cyclic' | 'acyclic' | 'grid';
-export type AlgorithmType = 'none' | 'bfs';
+export type AlgorithmType = 'none' | 'bfs' | 'dfs';
 
 export type Node = {
     id: number;
@@ -30,6 +30,19 @@ export type BFSState = {
     visited: Set<number>;
     toVisit: Set<number>;
     history: { queue: number[], visited: Set<number>, toVisit: Set<number> }[];
+    currentStep: number;
+    isRunning: boolean;
+    targetFound: boolean;
+    pathFound: boolean;
+    adjList: number[][];
+};
+
+// DFS algorithm state
+export type DFSState = {
+    stack: number[];
+    visited: Set<number>;
+    toVisit: Set<number>;
+    history: { stack: number[], visited: Set<number>, toVisit: Set<number> }[];
     currentStep: number;
     isRunning: boolean;
     targetFound: boolean;

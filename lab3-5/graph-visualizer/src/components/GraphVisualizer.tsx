@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Graph, Node, Edge, GraphType, AlgorithmType, BFSState } from '../types';
+import { Graph, Node, Edge, GraphType, AlgorithmType, BFSState, DFSState } from '../types';
 import { generateGraph } from '../generators';
-import { initializeBFS, stepBFS, resetBFS } from '../algorithms';
+import { initializeBFS, stepBFS, resetBFS, initializeDFS, stepDFS, resetDFS } from '../algorithms';
 
 const GraphVisualizer: React.FC = () => {
     const [graphType, setGraphType] = useState<GraphType>('complete');
@@ -15,6 +15,7 @@ const GraphVisualizer: React.FC = () => {
     const [startNode, setStartNode] = useState<number | null>(null);
     const [endNode, setEndNode] = useState<number | null>(null);
     const [bfsState, setBfsState] = useState<BFSState | null>(null);
+    const [dfsState, setDfsState] = useState<DFSState | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
 
     // Pan and zoom state
@@ -49,23 +50,39 @@ const GraphVisualizer: React.FC = () => {
 
     // Update node colors based on BFS state
     useEffect(() => {
-        if (!bfsState || algorithmType !== 'bfs') return;
+        if (algorithmType === 'bfs' && bfsState) {
+            // Update node statuses based on BFS state
+            const updatedNodes = graph.nodes.map(node => {
+                let status: 'unvisited' | 'queued' | 'visited' = 'unvisited';
 
-        // Update node statuses based on BFS state
-        const updatedNodes = graph.nodes.map(node => {
-            let status: 'unvisited' | 'queued' | 'visited' = 'unvisited';
+                if (bfsState.visited.has(node.id)) {
+                    status = 'visited';
+                } else if (bfsState.toVisit.has(node.id)) {
+                    status = 'queued';
+                }
 
-            if (bfsState.visited.has(node.id)) {
-                status = 'visited';
-            } else if (bfsState.toVisit.has(node.id)) {
-                status = 'queued';
-            }
+                return { ...node, status };
+            });
 
-            return { ...node, status };
-        });
+            setGraph(prev => ({ ...prev, nodes: updatedNodes }));
+        } else if (algorithmType === 'dfs' && dfsState) {
+            // Update node statuses based on DFS state
+            const updatedNodes = graph.nodes.map(node => {
+                let status: 'unvisited' | 'queued' | 'visited' = 'unvisited';
 
-        setGraph(prev => ({ ...prev, nodes: updatedNodes }));
-    }, [bfsState, algorithmType]);
+                if (dfsState.visited.has(node.id)) {
+                    status = 'visited';
+                } else if (dfsState.toVisit.has(node.id)) {
+                    status = 'queued';
+                }
+
+                return { ...node, status };
+            });
+
+            setGraph(prev => ({ ...prev, nodes: updatedNodes }));
+        }
+    }, [bfsState, dfsState, algorithmType, graph.nodes]);
+
 
     // Simple zoom functions
     const zoomIn = () => {
@@ -210,31 +227,41 @@ const GraphVisualizer: React.FC = () => {
 
     // Add/remove event listeners for algorithm controls
     useEffect(() => {
-        if (algorithmType === 'bfs') {
+        if (algorithmType === 'bfs' || algorithmType === 'dfs') {
             window.addEventListener('keydown', handleAlgorithmKeyDown);
             return () => {
                 window.removeEventListener('keydown', handleAlgorithmKeyDown);
             };
         }
-    }, [algorithmType, bfsState, startNode, endNode]);
+    }, [algorithmType, bfsState, dfsState, startNode, endNode]);
 
     // Handle algorithm selection
     const handleAlgorithmChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newAlgorithm = e.target.value as AlgorithmType;
         setAlgorithmType(newAlgorithm);
 
-        // Initialize BFS if selected and we have a start node
-        if (newAlgorithm === 'bfs' && startNode !== null) {
-            setBfsState(initializeBFS(graph, startNode, isDirected));
+        // Initialize algorithm if selected and we have a start node
+        if (startNode !== null) {
+            if (newAlgorithm === 'bfs') {
+                setBfsState(initializeBFS(graph, startNode, isDirected));
+                setDfsState(null);
+            } else if (newAlgorithm === 'dfs') {
+                setDfsState(initializeDFS(graph, startNode, isDirected));
+                setBfsState(null);
+            } else {
+                setBfsState(null);
+                setDfsState(null);
+            }
         } else {
             setBfsState(null);
-
-            // Reset node statuses
-            setGraph(prev => ({
-                ...prev,
-                nodes: prev.nodes.map(node => ({ ...node, status: 'unvisited' }))
-            }));
+            setDfsState(null);
         }
+
+        // Reset node statuses when changing algorithms
+        setGraph(prev => ({
+            ...prev,
+            nodes: prev.nodes.map(node => ({ ...node, status: 'unvisited' }))
+        }));
     };
 
     // Handle step through BFS algorithm
@@ -253,16 +280,40 @@ const GraphVisualizer: React.FC = () => {
         setBfsState(newBfsState);
     };
 
+    // Handle step through DFS algorithm
+    const handleDfsStepNext = () => {
+        if (!dfsState || dfsState.stack.length === 0 || dfsState.pathFound) return;
+
+        const newDfsState = stepDFS(dfsState, endNode);
+        setDfsState(newDfsState);
+    };
+
+    // Handle reset DFS algorithm
+    const handleDfsReset = () => {
+        if (startNode === null) return;
+
+        const newDfsState = resetDFS(graph, startNode, isDirected);
+        setDfsState(newDfsState);
+    };
+
     // Handle keyboard controls
     const handleAlgorithmKeyDown = (e: KeyboardEvent) => {
         // Right arrow key for next step
         if (e.key === 'ArrowRight') {
-            handleBfsStepNext();
+            if (algorithmType === 'bfs') {
+                handleBfsStepNext();
+            } else if (algorithmType === 'dfs') {
+                handleDfsStepNext();
+            }
         }
 
         // 'R' key for reset
         if (e.key === 'r' || e.key === 'R') {
-            handleBfsReset();
+            if (algorithmType === 'bfs') {
+                handleBfsReset();
+            } else if (algorithmType === 'dfs') {
+                handleDfsReset();
+            }
         }
     };
 
@@ -283,6 +334,7 @@ const GraphVisualizer: React.FC = () => {
                     >
                         <option value="none">None</option>
                         <option value="bfs">Breadth-First Search (BFS)</option>
+                        <option value="dfs">Depth-First Search (DFS)</option>
                     </select>
                 </div>
 
@@ -486,7 +538,7 @@ const GraphVisualizer: React.FC = () => {
                             let fillColor = '#4CAF50'; // Default green color
 
                             // Set color based on algorithm status
-                            if (algorithmType === 'bfs') {
+                            if (algorithmType === 'bfs' || algorithmType === 'dfs') {
                                 if (node.status === 'visited') {
                                     fillColor = '#000000'; // Black for visited
                                 } else if (node.status === 'queued') {
@@ -730,7 +782,7 @@ const GraphVisualizer: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Queue and Visited Display (horizontal layout) */}
+                    {/* Queue and Visited Display */}
                     <div className="flex gap-4">
                         <div className="flex-1 bg-gray-100 p-3 rounded border border-gray-300">
                             <h4 className="font-medium mb-2">Queue:</h4>
@@ -758,6 +810,86 @@ const GraphVisualizer: React.FC = () => {
                                 ) : (
                                     <span>
                                         {Array.from(bfsState?.visited || []).map((nodeId, index, array) => (
+                                            <span key={`visited-${nodeId}`}>
+                                                <span className="font-bold">{graph.nodes.find(n => n.id === nodeId)?.label || nodeId}</span>
+                                                {index < array.length - 1 && <span className="mx-1">,</span>}
+                                            </span>
+                                        ))}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DFS Controls and Info */}
+            {algorithmType === 'dfs' && (
+                <div className="mt-4 w-full">
+                    <div className="flex justify-between items-center mb-2 bg-gray-100 p-3 rounded border border-gray-300">
+                        <h3 className="font-bold">DFS Control</h3>
+
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={handleDfsReset}
+                                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                                disabled={startNode === null}
+                            >
+                                Reset (R)
+                            </button>
+                            <button
+                                onClick={handleDfsStepNext}
+                                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                                disabled={!dfsState || dfsState.stack.length === 0 || (dfsState && dfsState.pathFound)}
+                            >
+                                Step Next (→)
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Path Messages */}
+                    {dfsState && dfsState.pathFound && (
+                        <div className="bg-green-100 border border-green-500 text-green-700 px-4 py-2 rounded mb-4">
+                            <p className="font-bold">Path Found! 🎉</p>
+                            <p>Target node reached after {dfsState.currentStep} steps.</p>
+                        </div>
+                    )}
+
+                    {dfsState && dfsState.stack.length === 0 && !dfsState.pathFound && dfsState.currentStep > 0 && (
+                        <div className="bg-yellow-100 border border-yellow-500 text-yellow-700 px-4 py-2 rounded mb-4">
+                            <p className="font-bold">Path Not Found!</p>
+                            <p>Explored all reachable nodes ({dfsState.visited.size} nodes) but could not reach the target.</p>
+                        </div>
+                    )}
+
+                    {/* Stack and Visited Display */}
+                    <div className="flex gap-4">
+                        <div className="flex-1 bg-gray-100 p-3 rounded border border-gray-300">
+                            <h4 className="font-medium mb-2">Stack:</h4>
+                            <div className="flex items-center">
+                                {dfsState?.stack.length === 0 ? (
+                                    <span className="italic text-gray-500">Empty</span>
+                                ) : (
+                                    <span>
+                                        {dfsState?.stack.map((nodeId, index) => (
+                                            <span key={`stack-${nodeId}`}>
+                                                <span className="font-bold">{graph.nodes.find(n => n.id === nodeId)?.label || nodeId}</span>
+                                                {index < dfsState.stack.length - 1 && <span className="mx-1">→</span>}
+                                            </span>
+                                        ))}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex-1 bg-gray-100 p-3 rounded border border-gray-300">
+                            <h4 className="font-medium mb-2">Visited Nodes:</h4>
+                            <div className="flex items-center">
+                                {dfsState?.visited.size === 0 ? (
+                                    <span className="italic text-gray-500">None</span>
+                                ) : (
+                                    <span>
+                                        {Array.from(dfsState?.visited || []).map((nodeId, index, array) => (
                                             <span key={`visited-${nodeId}`}>
                                                 <span className="font-bold">{graph.nodes.find(n => n.id === nodeId)?.label || nodeId}</span>
                                                 {index < array.length - 1 && <span className="mx-1">,</span>}
