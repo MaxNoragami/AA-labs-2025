@@ -744,6 +744,7 @@ const GraphVisualizer: React.FC = () => {
             </div>
 
             {/* BFS Controls and Info (below graph) */}
+            {/* BFS Controls and Info */}
             {algorithmType === 'bfs' && (
                 <div className="mt-4 w-full">
                     <div className="flex justify-between items-center mb-2 bg-gray-100 p-3 rounded border border-gray-300">
@@ -776,9 +777,25 @@ const GraphVisualizer: React.FC = () => {
                     )}
 
                     {bfsState && bfsState.queue.length === 0 && !bfsState.pathFound && bfsState.currentStep > 0 && (
-                        <div className="bg-yellow-100 border border-yellow-500 text-yellow-700 px-4 py-2 rounded mb-4">
-                            <p className="font-bold">Path Not Found!</p>
-                            <p>Explored all reachable nodes ({bfsState.visited.size} nodes) but could not reach the target.</p>
+                        <div className={`${endNode === null ? (bfsState.visited.size === graph.nodes.length ? "bg-green-100 border-green-500 text-green-700" : "bg-blue-100 border-blue-500 text-blue-700") : "bg-yellow-100 border-yellow-500 text-yellow-700"} px-4 py-2 rounded mb-4 border`}>
+                            {endNode === null ? (
+                                bfsState.visited.size === graph.nodes.length ? (
+                                    <>
+                                        <p className="font-bold">Graph Fully Traversed! 🌐</p>
+                                        <p>Visited all {bfsState.visited.size} nodes in the graph.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="font-bold">Partial Traversal Completed</p>
+                                        <p>Visited {bfsState.visited.size} out of {graph.nodes.length} nodes. Some nodes are unreachable from the start node.</p>
+                                    </>
+                                )
+                            ) : (
+                                <>
+                                    <p className="font-bold">Path Not Found!</p>
+                                    <p>Explored all reachable nodes ({bfsState.visited.size} nodes) but could not reach the target.</p>
+                                </>
+                            )}
                         </div>
                     )}
 
@@ -856,9 +873,25 @@ const GraphVisualizer: React.FC = () => {
                     )}
 
                     {dfsState && dfsState.stack.length === 0 && !dfsState.pathFound && dfsState.currentStep > 0 && (
-                        <div className="bg-yellow-100 border border-yellow-500 text-yellow-700 px-4 py-2 rounded mb-4">
-                            <p className="font-bold">Path Not Found!</p>
-                            <p>Explored all reachable nodes ({dfsState.visited.size} nodes) but could not reach the target.</p>
+                        <div className={`${endNode === null ? (dfsState.visited.size === graph.nodes.length ? "bg-green-100 border-green-500 text-green-700" : "bg-blue-100 border-blue-500 text-blue-700") : "bg-yellow-100 border-yellow-500 text-yellow-700"} px-4 py-2 rounded mb-4 border`}>
+                            {endNode === null ? (
+                                dfsState.visited.size === graph.nodes.length ? (
+                                    <>
+                                        <p className="font-bold">Graph Fully Traversed! 🌐</p>
+                                        <p>Visited all {dfsState.visited.size} nodes in the graph.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="font-bold">Partial Traversal Completed</p>
+                                        <p>Visited {dfsState.visited.size} out of {graph.nodes.length} nodes. Some nodes are unreachable from the start node.</p>
+                                    </>
+                                )
+                            ) : (
+                                <>
+                                    <p className="font-bold">Path Not Found!</p>
+                                    <p>Explored all reachable nodes ({dfsState.visited.size} nodes) but could not reach the target.</p>
+                                </>
+                            )}
                         </div>
                     )}
 
