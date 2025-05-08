@@ -1,6 +1,8 @@
 // Define all shared types for the application
 export type GraphType = 'complete' | 'dense' | 'sparse' | 'tree' | 'connected' | 'disconnected' | 'cyclic' | 'acyclic' | 'grid';
-export type AlgorithmType = 'none' | 'bfs' | 'dfs';
+// Update the AlgorithmType
+export type AlgorithmType = 'none' | 'bfs' | 'dfs' | 'dijkstra';
+
 
 export type Node = {
     id: number;
@@ -11,6 +13,7 @@ export type Node = {
     gridX?: number;
     gridY?: number;
     status?: 'unvisited' | 'queued' | 'visited';
+    distance?: number; // Add this line to include the distance property
 };
 
 export type Edge = {
@@ -48,4 +51,24 @@ export type DFSState = {
     targetFound: boolean;
     pathFound: boolean;
     adjList: number[][];
+};
+
+export type DijkstraState = {
+    distances: number[];
+    previous: (number | null)[];
+    visited: Set<number>;
+    toVisit: Set<number>;
+    priorityQueue: [number, number][]; // [distance, nodeId]
+    history: {
+        distances: number[],
+        previous: (number | null)[],
+        visited: Set<number>,
+        toVisit: Set<number>,
+        priorityQueue: [number, number][]
+    }[];
+    currentStep: number;
+    isRunning: boolean;
+    targetFound: boolean;
+    pathFound: boolean;
+    adjList: [number, number][][];
 };

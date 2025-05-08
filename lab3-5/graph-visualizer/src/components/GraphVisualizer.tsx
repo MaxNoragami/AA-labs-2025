@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Graph, Node, Edge, GraphType, AlgorithmType, BFSState, DFSState } from '../types';
+import { Graph, Node, Edge, GraphType, AlgorithmType, BFSState, DFSState, DijkstraState } from '../types';
 import { generateGraph } from '../generators';
-import { initializeBFS, stepBFS, resetBFS, initializeDFS, stepDFS, resetDFS } from '../algorithms';
+import { initializeBFS, stepBFS, resetBFS, initializeDFS, stepDFS, resetDFS, initializeDijkstra, stepDijkstra, resetDijkstra, getShortestPath } from '../algorithms';
 
 const GraphVisualizer: React.FC = () => {
     const [graphType, setGraphType] = useState<GraphType>('complete');
@@ -16,6 +16,7 @@ const GraphVisualizer: React.FC = () => {
     const [endNode, setEndNode] = useState<number | null>(null);
     const [bfsState, setBfsState] = useState<BFSState | null>(null);
     const [dfsState, setDfsState] = useState<DFSState | null>(null);
+    const [dijkstraState, setDijkstraState] = useState<DijkstraState | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
 
     // Pan and zoom state
@@ -61,7 +62,15 @@ const GraphVisualizer: React.FC = () => {
                     status = 'queued';
                 }
 
-                return { ...node, status };
+                // In the BFS useEffect:
+                return {
+                    ...node,
+                    status,
+                    // Reset the distance property if it exists
+                    ...(('distance' in node) ? { distance: undefined } : {})
+                };
+
+                // Same for DFS
             });
 
             setGraph(prev => ({ ...prev, nodes: updatedNodes }));
@@ -76,12 +85,43 @@ const GraphVisualizer: React.FC = () => {
                     status = 'queued';
                 }
 
-                return { ...node, status };
+                // In the BFS useEffect:
+                return {
+                    ...node,
+                    status,
+                    // Reset the distance property if it exists
+                    ...(('distance' in node) ? { distance: undefined } : {})
+                };
+
+                // Same for DFS
             });
 
             setGraph(prev => ({ ...prev, nodes: updatedNodes }));
         }
-    }, [bfsState, dfsState, algorithmType, graph.nodes]);
+        else if (algorithmType === 'dijkstra' && dijkstraState) {
+            // Update node statuses based on Dijkstra state
+            const updatedNodes = graph.nodes.map(node => {
+                let status: 'unvisited' | 'queued' | 'visited' = 'unvisited';
+
+                if (dijkstraState.visited.has(node.id)) {
+                    status = 'visited';
+                } else if (dijkstraState.toVisit.has(node.id)) {
+                    status = 'queued';
+                }
+
+                return {
+                    ...node,
+                    status,
+                    // Store the distance as a property on the node for display
+                    distance: dijkstraState.distances[node.id] === Number.MAX_SAFE_INTEGER ?
+                        Infinity : dijkstraState.distances[node.id]
+                };
+            });
+
+            setGraph(prev => ({ ...prev, nodes: updatedNodes }));
+        }
+    }, [bfsState, dfsState, dijkstraState, algorithmType, graph.nodes]);
+
 
 
     // Simple zoom functions
@@ -235,26 +275,39 @@ const GraphVisualizer: React.FC = () => {
         }
     }, [algorithmType, bfsState, dfsState, startNode, endNode]);
 
-    // Handle algorithm selection
+    // Update the algorithm change handler
     const handleAlgorithmChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newAlgorithm = e.target.value as AlgorithmType;
         setAlgorithmType(newAlgorithm);
+
+        // Force weighted to be true when Dijkstra is selected
+        if (newAlgorithm === 'dijkstra' && !isWeighted) {
+            setIsWeighted(true);
+        }
 
         // Initialize algorithm if selected and we have a start node
         if (startNode !== null) {
             if (newAlgorithm === 'bfs') {
                 setBfsState(initializeBFS(graph, startNode, isDirected));
                 setDfsState(null);
+                setDijkstraState(null);
             } else if (newAlgorithm === 'dfs') {
                 setDfsState(initializeDFS(graph, startNode, isDirected));
                 setBfsState(null);
+                setDijkstraState(null);
+            } else if (newAlgorithm === 'dijkstra') {
+                setDijkstraState(initializeDijkstra(graph, startNode, isDirected));
+                setBfsState(null);
+                setDfsState(null);
             } else {
                 setBfsState(null);
                 setDfsState(null);
+                setDijkstraState(null);
             }
         } else {
             setBfsState(null);
             setDfsState(null);
+            setDijkstraState(null);
         }
 
         // Reset node statuses when changing algorithms
@@ -296,7 +349,22 @@ const GraphVisualizer: React.FC = () => {
         setDfsState(newDfsState);
     };
 
-    // Handle keyboard controls
+    // Add these functions for Dijkstra controls
+    const handleDijkstraStepNext = () => {
+        if (!dijkstraState || dijkstraState.priorityQueue.length === 0 || dijkstraState.pathFound) return;
+
+        const newDijkstraState = stepDijkstra(dijkstraState, endNode);
+        setDijkstraState(newDijkstraState);
+    };
+
+    const handleDijkstraReset = () => {
+        if (startNode === null) return;
+
+        const newDijkstraState = resetDijkstra(graph, startNode, isDirected);
+        setDijkstraState(newDijkstraState);
+    };
+
+    // Update the keyboard event handler
     const handleAlgorithmKeyDown = (e: KeyboardEvent) => {
         // Right arrow key for next step
         if (e.key === 'ArrowRight') {
@@ -304,6 +372,8 @@ const GraphVisualizer: React.FC = () => {
                 handleBfsStepNext();
             } else if (algorithmType === 'dfs') {
                 handleDfsStepNext();
+            } else if (algorithmType === 'dijkstra') {
+                handleDijkstraStepNext();
             }
         }
 
@@ -313,6 +383,8 @@ const GraphVisualizer: React.FC = () => {
                 handleBfsReset();
             } else if (algorithmType === 'dfs') {
                 handleDfsReset();
+            } else if (algorithmType === 'dijkstra') {
+                handleDijkstraReset();
             }
         }
     };
@@ -335,6 +407,7 @@ const GraphVisualizer: React.FC = () => {
                         <option value="none">None</option>
                         <option value="bfs">Breadth-First Search (BFS)</option>
                         <option value="dfs">Depth-First Search (DFS)</option>
+                        <option value="dijkstra">Dijkstra's Algorithm</option>
                     </select>
                 </div>
 
@@ -395,10 +468,11 @@ const GraphVisualizer: React.FC = () => {
                             type="checkbox"
                             checked={isWeighted}
                             onChange={(e) => setIsWeighted(e.target.checked)}
+                            disabled={algorithmType === 'dijkstra'} // Disable when Dijkstra is selected
                             className="mr-2 h-4 w-4"
                         />
                         <label htmlFor="weighted" className="font-medium">
-                            Weighted Graph
+                            Weighted Graph{algorithmType === 'dijkstra' ? ' (Required for Dijkstra)' : ''}
                         </label>
                     </div>
                 </div>
@@ -654,7 +728,6 @@ const GraphVisualizer: React.FC = () => {
                             const isHovered = node.id === hoveredNode;
                             const hoverStroke = isHovered ? '#FFC107' : 'black'; // Yellow stroke for hovered node
                             const hoverStrokeWidth = isHovered ? 2 : 1;
-
                             return (
                                 <g
                                     key={`node-${node.id}`}
@@ -707,6 +780,30 @@ const GraphVisualizer: React.FC = () => {
                                         >
                                             End
                                         </text>
+                                    )}
+
+                                    {/* Show distance for Dijkstra algorithm */}
+                                    {algorithmType === 'dijkstra' && dijkstraState && 'distance' in node && (
+                                        <g>
+                                            <circle
+                                                cx={node.x}
+                                                cy={node.y + 25}
+                                                r="12"
+                                                fill="#4CAF50"
+                                                opacity="0.9"
+                                            />
+                                            <text
+                                                x={node.x}
+                                                y={node.y + 25}
+                                                textAnchor="middle"
+                                                dominantBaseline="middle"
+                                                fill="#FFFFFF"
+                                                fontWeight="bold"
+                                                fontSize="10px"
+                                            >
+                                                {node.distance === Infinity ? '∞' : node.distance}
+                                            </text>
+                                        </g>
                                     )}
                                 </g>
                             );
@@ -930,6 +1027,95 @@ const GraphVisualizer: React.FC = () => {
                                         ))}
                                     </span>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Dijkstra Controls and Info */}
+            {algorithmType === 'dijkstra' && (
+                <div className="mt-4 w-full">
+                    <div className="flex justify-between items-center mb-2 bg-gray-100 p-3 rounded border border-gray-300">
+                        <h3 className="font-bold">Dijkstra Control</h3>
+
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={handleDijkstraReset}
+                                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                                disabled={startNode === null}
+                            >
+                                Reset (R)
+                            </button>
+                            <button
+                                onClick={handleDijkstraStepNext}
+                                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                                disabled={!dijkstraState || dijkstraState.priorityQueue.length === 0 || (dijkstraState && dijkstraState.pathFound)}
+                            >
+                                Step Next (→)
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Path Messages */}
+                    {dijkstraState && dijkstraState.pathFound && (
+                        <div className="bg-green-100 border border-green-500 text-green-700 px-4 py-2 rounded mb-4">
+                            <p className="font-bold">Path Found! 🎉</p>
+                            <p>Target node reached after {dijkstraState.currentStep} steps.</p>
+                            {endNode !== null && (
+                                <p>Shortest distance: {dijkstraState.distances[endNode]}</p>
+                            )}
+                        </div>
+                    )}
+
+                    {dijkstraState && dijkstraState.priorityQueue.length === 0 && !dijkstraState.pathFound && dijkstraState.currentStep > 0 && (
+                        <div className={`${endNode === null ? (dijkstraState.visited.size === graph.nodes.length ? "bg-green-100 border-green-500 text-green-700" : "bg-blue-100 border-blue-500 text-blue-700") : "bg-yellow-100 border-yellow-500 text-yellow-700"} px-4 py-2 rounded mb-4 border`}>
+                            {endNode === null ? (
+                                dijkstraState.visited.size === graph.nodes.length ? (
+                                    <>
+                                        <p className="font-bold">All Shortest Paths Found! 🌐</p>
+                                        <p>Calculated shortest paths to all {dijkstraState.visited.size} nodes in the graph.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="font-bold">Partial Shortest Paths Calculated</p>
+                                        <p>Found shortest paths to {dijkstraState.visited.size} out of {graph.nodes.length} nodes. Some nodes are unreachable from the start node.</p>
+                                    </>
+                                )
+                            ) : (
+                                <>
+                                    <p className="font-bold">Path Not Found!</p>
+                                    <p>Explored all reachable nodes ({dijkstraState.visited.size} nodes) but could not reach the target.</p>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Distance Table */}
+                    <div className="flex gap-4">
+                        <div className="flex-1 bg-gray-100 p-3 rounded border border-gray-300">
+                            <h4 className="font-medium mb-2">Priority Queue (Distance, Node):</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {dijkstraState?.priorityQueue.length === 0 ? (
+                                    <span className="italic text-gray-500">Empty</span>
+                                ) : (
+                                    dijkstraState?.priorityQueue.map(([dist, nodeId], index) => (
+                                        <span key={`queue-${nodeId}-${index}`} className="inline-block px-2 py-1 bg-green-100 border border-green-200 rounded">
+                                            ({dist}, {graph.nodes.find(n => n.id === nodeId)?.label || nodeId})
+                                        </span>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex-1 bg-gray-100 p-3 rounded border border-gray-300">
+                            <h4 className="font-medium mb-2">Distances:</h4>
+                            <div className="grid grid-cols-3 gap-2">
+                                {dijkstraState?.distances.map((distance, index) => (
+                                    <div key={`distance-${index}`} className="flex justify-between px-2 py-1 bg-white border border-gray-200 rounded">
+                                        <span className="font-bold">{graph.nodes.find(n => n.id === index)?.label || index}:</span>
+                                        <span>{distance === Number.MAX_SAFE_INTEGER ? '∞' : distance}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
