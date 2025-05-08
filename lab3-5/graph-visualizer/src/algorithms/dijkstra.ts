@@ -81,7 +81,6 @@ export const initializeDijkstra = (graph: Graph, startNode: number, isDirected: 
     // Initialize previous array to track paths
     const previous: (number | null)[] = Array(graph.nodes.length).fill(null);
 
-    // Initialize Dijkstra state
     const dijkstraState: DijkstraState = {
         distances,
         previous,
@@ -93,9 +92,9 @@ export const initializeDijkstra = (graph: Graph, startNode: number, isDirected: 
         isRunning: false,
         targetFound: false,
         pathFound: false,
-        adjList
+        adjList,
+        nodeToDistanceMap: { [startNode]: 0 } // Initialize with start node distance
     };
-
     // Save initial state to history
     dijkstraState.history.push({
         distances: [...dijkstraState.distances],
@@ -108,7 +107,6 @@ export const initializeDijkstra = (graph: Graph, startNode: number, isDirected: 
     return dijkstraState;
 };
 
-// Execute a single step of Dijkstra's algorithm
 export const stepDijkstra = (dijkstraState: DijkstraState, endNode: number | null): DijkstraState => {
     const { distances, previous, visited, toVisit, priorityQueue, adjList } = dijkstraState;
 
@@ -133,7 +131,7 @@ export const stepDijkstra = (dijkstraState: DijkstraState, endNode: number | nul
 
     // Check if we reached the end node
     if (endNode !== null && current === endNode) {
-        // Mark as visited
+        // Mark as visited and processed
         const newVisited = new Set([...visited, current]);
         toVisit.delete(current);
 
@@ -145,7 +143,9 @@ export const stepDijkstra = (dijkstraState: DijkstraState, endNode: number | nul
             isRunning: false,
             targetFound: true,
             pathFound: true,
-            currentStep: dijkstraState.currentStep + 1
+            currentStep: dijkstraState.currentStep + 1,
+            processedNode: current, // Add this to track which node was just processed
+            nodeToDistanceMap: { ...dijkstraState.nodeToDistanceMap, [current]: distances[current] }
         };
     }
 
@@ -162,6 +162,10 @@ export const stepDijkstra = (dijkstraState: DijkstraState, endNode: number | nul
     const newVisited = new Set([...visited, current]);
     toVisit.delete(current);
 
+    // Store temporary queue additions before processing neighbors
+    const queueAdditions: [number, number][] = [];
+    const nodesToEnqueue: number[] = [];
+
     // Process neighbors
     const neighbors = adjList[current];
     for (const [neighbor, weight] of neighbors) {
@@ -174,9 +178,9 @@ export const stepDijkstra = (dijkstraState: DijkstraState, endNode: number | nul
                 distances[neighbor] = newDist;
                 previous[neighbor] = current;
 
-                // Add to priority queue
-                minHeap.push([newDist, neighbor]);
-                toVisit.add(neighbor);
+                // Add to queue additions
+                queueAdditions.push([newDist, neighbor]);
+                nodesToEnqueue.push(neighbor);
 
                 // If this neighbor is the target, mark it
                 if (endNode !== null && neighbor === endNode) {
@@ -186,11 +190,16 @@ export const stepDijkstra = (dijkstraState: DijkstraState, endNode: number | nul
         }
     }
 
-    // Re-build priority queue from minHeap
+    // Re-build priority queue with minHeap and new additions
     const heapArray: [number, number][] = [];
     while (minHeap.size() > 0) {
         const item = minHeap.pop();
         if (item) heapArray.push(item);
+    }
+
+    // Add new nodes to queue
+    for (const item of queueAdditions) {
+        heapArray.push(item);
     }
 
     // Create the new state with all updates
@@ -199,9 +208,15 @@ export const stepDijkstra = (dijkstraState: DijkstraState, endNode: number | nul
         distances: [...distances],
         previous: [...previous],
         visited: newVisited,
-        toVisit: new Set(toVisit),
+        toVisit: new Set([...toVisit, ...nodesToEnqueue]),
         priorityQueue: heapArray,
-        currentStep: dijkstraState.currentStep + 1
+        currentStep: dijkstraState.currentStep + 1,
+        processedNode: current, // Add this to track which node was just processed
+        newlyQueuedNodes: nodesToEnqueue, // Add this to track which nodes were just added to queue
+        nodeToDistanceMap: {
+            ...dijkstraState.nodeToDistanceMap,
+            [current]: distances[current]
+        }
     };
 
     // Save current state to history
@@ -210,7 +225,10 @@ export const stepDijkstra = (dijkstraState: DijkstraState, endNode: number | nul
         previous: [...newState.previous],
         visited: new Set(newState.visited),
         toVisit: new Set(newState.toVisit),
-        priorityQueue: [...newState.priorityQueue]
+        priorityQueue: [...newState.priorityQueue],
+        processedNode: newState.processedNode,
+        newlyQueuedNodes: newState.newlyQueuedNodes,
+        nodeToDistanceMap: { ...newState.nodeToDistanceMap }
     });
 
     return newState;

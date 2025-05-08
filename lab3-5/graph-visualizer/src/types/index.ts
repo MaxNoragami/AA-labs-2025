@@ -13,7 +13,9 @@ export type Node = {
     gridX?: number;
     gridY?: number;
     status?: 'unvisited' | 'queued' | 'visited';
-    distance?: number; // Add this line to include the distance property
+    distance?: number;
+    // Add a new property for Dijkstra-specific state
+    dijkstraStatus?: 'unprocessed' | 'inQueue' | 'processed';
 };
 
 export type Edge = {
@@ -52,7 +54,6 @@ export type DFSState = {
     pathFound: boolean;
     adjList: number[][];
 };
-
 export type DijkstraState = {
     distances: number[];
     previous: (number | null)[];
@@ -64,11 +65,17 @@ export type DijkstraState = {
         previous: (number | null)[],
         visited: Set<number>,
         toVisit: Set<number>,
-        priorityQueue: [number, number][]
+        priorityQueue: [number, number][],
+        processedNode?: number,
+        newlyQueuedNodes?: number[],
+        nodeToDistanceMap?: { [key: number]: number }
     }[];
     currentStep: number;
     isRunning: boolean;
     targetFound: boolean;
     pathFound: boolean;
     adjList: [number, number][][];
+    processedNode?: number; // Track the most recently processed node
+    newlyQueuedNodes?: number[]; // Track nodes just added to queue
+    nodeToDistanceMap: { [key: number]: number }; // Map of node IDs to their finalized distances
 };

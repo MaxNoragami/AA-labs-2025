@@ -102,19 +102,27 @@ const GraphVisualizer: React.FC = () => {
             // Update node statuses based on Dijkstra state
             const updatedNodes = graph.nodes.map(node => {
                 let status: 'unvisited' | 'queued' | 'visited' = 'unvisited';
+                let dijkstraStatus: 'unprocessed' | 'inQueue' | 'processed' = 'unprocessed';
 
+                // Determine node status
                 if (dijkstraState.visited.has(node.id)) {
                     status = 'visited';
+                    dijkstraStatus = 'processed'; // Blue
                 } else if (dijkstraState.toVisit.has(node.id)) {
                     status = 'queued';
+                    dijkstraStatus = 'inQueue'; // Yellow
                 }
+
+                // Only show distances for processed nodes
+                const distance = dijkstraState.nodeToDistanceMap[node.id] !== undefined
+                    ? dijkstraState.nodeToDistanceMap[node.id]
+                    : Infinity;
 
                 return {
                     ...node,
                     status,
-                    // Store the distance as a property on the node for display
-                    distance: dijkstraState.distances[node.id] === Number.MAX_SAFE_INTEGER ?
-                        Infinity : dijkstraState.distances[node.id]
+                    dijkstraStatus,
+                    distance
                 };
             });
 
@@ -610,8 +618,27 @@ const GraphVisualizer: React.FC = () => {
                         {graph.nodes.map((node) => {
                             // Determine fill color based on graph type, node state (start/end), and algorithm status
                             let fillColor = '#4CAF50'; // Default green color
-
                             // Set color based on algorithm status
+                            if (algorithmType === 'dijkstra') {
+                                if (node.dijkstraStatus === 'processed') {
+                                    fillColor = '#2196F3'; // Blue for processed nodes
+                                } else if (node.dijkstraStatus === 'inQueue') {
+                                    fillColor = '#FFC107'; // Yellow for nodes in queue
+                                } else {
+                                    // Regular coloring logic for unprocessed nodes
+                                    const isStartNode = node.id === startNode;
+                                    const isEndNode = node.id === endNode;
+
+                                    if (isStartNode) {
+                                        fillColor = '#76FF03'; // Lime green for start node
+                                    } else if (isEndNode) {
+                                        fillColor = '#00B0FF'; // Bright blue for end node
+                                    } else {
+                                        // Use default coloring for other nodes
+                                        fillColor = '#4CAF50';
+                                    }
+                                }
+                            } else
                             if (algorithmType === 'bfs' || algorithmType === 'dfs') {
                                 if (node.status === 'visited') {
                                     fillColor = '#000000'; // Black for visited
@@ -783,28 +810,29 @@ const GraphVisualizer: React.FC = () => {
                                     )}
 
                                     {/* Show distance for Dijkstra algorithm */}
-                                    {algorithmType === 'dijkstra' && dijkstraState && 'distance' in node && (
-                                        <g>
-                                            <circle
-                                                cx={node.x}
-                                                cy={node.y + 25}
-                                                r="12"
-                                                fill="#4CAF50"
-                                                opacity="0.9"
-                                            />
-                                            <text
-                                                x={node.x}
-                                                y={node.y + 25}
-                                                textAnchor="middle"
-                                                dominantBaseline="middle"
-                                                fill="#FFFFFF"
-                                                fontWeight="bold"
-                                                fontSize="10px"
-                                            >
-                                                {node.distance === Infinity ? '∞' : node.distance}
-                                            </text>
-                                        </g>
-                                    )}
+                                    {algorithmType === 'dijkstra' && dijkstraState &&
+                                        (node.dijkstraStatus === 'processed' || node.id === startNode) && (
+                                            <g>
+                                                <circle
+                                                    cx={node.x}
+                                                    cy={node.y + 25}
+                                                    r="12"
+                                                    fill="#4CAF50"
+                                                    opacity="0.9"
+                                                />
+                                                <text
+                                                    x={node.x}
+                                                    y={node.y + 25}
+                                                    textAnchor="middle"
+                                                    dominantBaseline="middle"
+                                                    fill="#FFFFFF"
+                                                    fontWeight="bold"
+                                                    fontSize="10px"
+                                                >
+                                                    {node.distance === undefined || node.distance === Infinity ? '∞' : node.distance}
+                                                </text>
+                                            </g>
+                                        )}
                                 </g>
                             );
                         })}
