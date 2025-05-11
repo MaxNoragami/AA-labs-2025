@@ -92,11 +92,13 @@ export type FloydWarshallState = {
         next: number[][],
         currentK: number,
         currentI: number,
-        currentJ: number
+        currentJ: number,
+        lastUpdated?: boolean   // Flag indicating if this step updated a value
     }[];
     currentStep: number;        // Current step in the algorithm
     isRunning: boolean;         // Whether the algorithm is running
     completed: boolean;         // Whether the algorithm has completed
     pathFound: boolean;         // Whether a path was found
     startNode: number | null;   // The starting node for path visualization
+    lastUpdated?: boolean;      // Flag indicating if the last step updated a value
 };

@@ -1203,7 +1203,7 @@ const GraphVisualizer: React.FC = () => {
                 </div>
             )}
             {/* Floyd-Warshall Controls and Info */}
-            {algorithmType === 'floydWarshall' && (
+            { algorithmType === 'floydWarshall' && (
                 <div className="mt-4 w-full">
                     <div className="flex justify-between items-center mb-2 bg-gray-100 p-3 rounded border border-gray-300">
                         <h3 className="font-bold">Floyd-Warshall Control</h3>
@@ -1230,9 +1230,86 @@ const GraphVisualizer: React.FC = () => {
                         <div className="bg-blue-100 border border-blue-500 text-blue-700 px-4 py-2 rounded mb-4">
                             <p className="font-bold">
                                 {floydWarshallState.completed
-                                    ? "Algorithm Completed! All shortest paths calculated."
+                                    ? "🪖 Algorithm Completed! All shortest paths calculated."
                                     : `Step ${floydWarshallState.currentStep}: Processing k=${floydWarshallState.currentK}, i=${floydWarshallState.currentI}, j=${floydWarshallState.currentJ}`}
                             </p>
+                        </div>
+                    )}
+
+                    {/* Current Comparison */}
+                    {floydWarshallState && !floydWarshallState.completed && floydWarshallState.currentK >= 0 && (
+                        <div className="mb-4 p-3 border border-gray-300 rounded bg-gray-50">
+                            <h4 className="font-medium mb-2">Current Comparison:</h4>
+                            <div className="flex flex-col items-start">
+                                {/* First line: general formula - KEEP THE ORIGINAL FORMAT */}
+                                <div className="text-lg font-mono">
+                                    dist[i][j] &gt; dist[i][k] + dist[k][j]
+                                </div>
+
+                                {/* Second line: with node labels - KEEP THE ORIGINAL ORDER */}
+                                <div className="text-lg font-mono">
+                                    dist[
+                                    <span className="font-bold">{graph.nodes[floydWarshallState.currentI]?.label || floydWarshallState.currentI}</span>
+                                    ][
+                                    <span className="font-bold">{graph.nodes[floydWarshallState.currentJ]?.label || floydWarshallState.currentJ}</span>
+                                    ] &gt; dist[
+                                    <span className="font-bold">{graph.nodes[floydWarshallState.currentI]?.label || floydWarshallState.currentI}</span>
+                                    ][
+                                    <span className="font-bold">{graph.nodes[floydWarshallState.currentK]?.label || floydWarshallState.currentK}</span>
+                                    ] + dist[
+                                    <span className="font-bold">{graph.nodes[floydWarshallState.currentK]?.label || floydWarshallState.currentK}</span>
+                                    ][
+                                    <span className="font-bold">{graph.nodes[floydWarshallState.currentJ]?.label || floydWarshallState.currentJ}</span>
+                                    ]
+                                </div>
+
+                                {/* Third line: But FIX the values issue */}
+                                {(() => {
+                                    // Get the PREVIOUS history entry to show the value BEFORE any update
+                                    const prevEntry = floydWarshallState.history[floydWarshallState.history.length - 2];
+                                    const currentIJ = prevEntry ?
+                                        prevEntry.dist[floydWarshallState.currentI][floydWarshallState.currentJ] :
+                                        floydWarshallState.dist[floydWarshallState.currentI][floydWarshallState.currentJ];
+
+                                    const currentIK = floydWarshallState.dist[floydWarshallState.currentI][floydWarshallState.currentK];
+                                    const currentKJ = floydWarshallState.dist[floydWarshallState.currentK][floydWarshallState.currentJ];
+
+                                    const newPath = (currentIK !== Number.MAX_SAFE_INTEGER &&
+                                        currentKJ !== Number.MAX_SAFE_INTEGER) ?
+                                        currentIK + currentKJ : Number.MAX_SAFE_INTEGER;
+
+                                    const wasUpdated = newPath < currentIJ;
+
+                                    return (
+                                        <div className={`text-lg font-mono ${wasUpdated ? 'text-green-600 font-bold' : 'text-gray-700'}`}>
+                                            {currentIJ === Number.MAX_SAFE_INTEGER ? '∞' : currentIJ} &gt; {currentIK === Number.MAX_SAFE_INTEGER ? '∞' : currentIK} + {currentKJ === Number.MAX_SAFE_INTEGER ? '∞' : currentKJ}
+                                            {wasUpdated && (
+                                                <span className="ml-4 text-green-600">
+                                                    (Updated to {newPath})
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Show final formula explanation after completion */}
+                    {floydWarshallState && floydWarshallState.completed && (
+                        <div className="mb-4 p-3 border border-green-300 rounded bg-green-50">
+                            <h4 className="font-medium mb-2">Floyd-Warshall Algorithm Complete</h4>
+                            <p>All shortest paths have been computed. The algorithm works by:</p>
+                            <div className="pl-4 mt-2">
+                                <p>1. For each intermediate node <strong>k</strong></p>
+                                <p>2. For each pair of nodes <strong>i</strong> and <strong>j</strong></p>
+                                <p>3. Check if going through node <strong>k</strong> gives a shorter path:</p>
+                                <div className="font-mono bg-white p-2 mt-1 rounded">
+                                    {"if dist[i][k] + dist[k][j] < dist[i][j]:"}
+                                    <br />
+                                    &nbsp;&nbsp;{"dist[i][j] = dist[i][k] + dist[k][j]"}
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -1262,9 +1339,14 @@ const GraphVisualizer: React.FC = () => {
                                                     <td
                                                         key={`cell-${i}-${j}`}
                                                         className={`border border-gray-300 p-2 text-center ${i === floydWarshallState.currentI && j === floydWarshallState.currentJ
-                                                                ? 'bg-yellow-200'
+                                                                ? floydWarshallState.lastUpdated
+                                                                    ? 'bg-green-200' // Green for updated cell
+                                                                    : 'bg-yellow-200' // Yellow for current cell
                                                                 : ''
-                                                            } ${floydWarshallState.currentK === i || floydWarshallState.currentK === j
+                                                            } ${
+                                                            // Highlight k row and column 
+                                                            (floydWarshallState.currentK === i || floydWarshallState.currentK === j) &&
+                                                                !(i === floydWarshallState.currentI && j === floydWarshallState.currentJ)
                                                                 ? 'bg-blue-100'
                                                                 : ''
                                                             }`}

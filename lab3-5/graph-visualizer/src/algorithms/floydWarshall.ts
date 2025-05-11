@@ -90,12 +90,14 @@ export const stepFloydWarshall = (state: FloydWarshallState): FloydWarshallState
                         currentStep: currentStep + 1,
                         isRunning: false,
                         completed: true,
+                        lastUpdated: false,
                         history: [...history, {
                             dist: dist.map(row => [...row]),
                             next: next.map(row => [...row]),
                             currentK,
                             currentI,
-                            currentJ
+                            currentJ,
+                            lastUpdated: false
                         }]
                     };
                 }
@@ -103,15 +105,19 @@ export const stepFloydWarshall = (state: FloydWarshallState): FloydWarshallState
         }
     }
 
-    // Apply the Floyd-Warshall relaxation step
+    // Track if this cell was updated
+    let lastUpdated = false;
+
     if (dist[currentI][currentK] !== Number.MAX_SAFE_INTEGER &&
         dist[currentK][currentJ] !== Number.MAX_SAFE_INTEGER) {
 
         const newDist = dist[currentI][currentK] + dist[currentK][currentJ];
 
+        // We update when we find a SHORTER path (less than, not greater than)
         if (newDist < dist[currentI][currentJ]) {
             dist[currentI][currentJ] = newDist;
             next[currentI][currentJ] = next[currentI][currentK];
+            lastUpdated = true;
         }
     }
 
@@ -120,7 +126,8 @@ export const stepFloydWarshall = (state: FloydWarshallState): FloydWarshallState
         next: next.map(row => [...row]),
         currentK,
         currentI,
-        currentJ
+        currentJ,
+        lastUpdated
     };
 
     return {
@@ -130,6 +137,7 @@ export const stepFloydWarshall = (state: FloydWarshallState): FloydWarshallState
         currentK,
         currentI,
         currentJ,
+        lastUpdated,
         currentStep: currentStep + 1,
         history: [...history, newHistoryEntry]
     };
