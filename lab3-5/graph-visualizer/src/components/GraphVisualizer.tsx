@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Graph, Node, Edge, GraphType, AlgorithmType, BFSState, DFSState, DijkstraState, FloydWarshallState } from '../types';
+import { Graph, Node, Edge, GraphType, AlgorithmType, BFSState, DFSState, DijkstraState, FloydWarshallState, KruskalState } from '../types';
 import { generateGraph } from '../generators';
-import { initializeBFS, stepBFS, resetBFS, initializeDFS, stepDFS, resetDFS, initializeDijkstra, stepDijkstra, resetDijkstra, getShortestPath, initializeFloydWarshall, stepFloydWarshall, getFloydWarshallPath } from '../algorithms';
+import { initializeBFS, stepBFS, resetBFS, initializeDFS, stepDFS, resetDFS, initializeDijkstra, stepDijkstra, resetDijkstra, getShortestPath, initializeFloydWarshall, stepFloydWarshall, getFloydWarshallPath, initializeKruskal, stepKruskal, getShortestPathInMST } from '../algorithms';
 
 const GraphVisualizer: React.FC = () => {
     const [graphType, setGraphType] = useState<GraphType>('complete');
@@ -18,6 +18,7 @@ const GraphVisualizer: React.FC = () => {
     const [dfsState, setDfsState] = useState<DFSState | null>(null);
     const [dijkstraState, setDijkstraState] = useState<DijkstraState | null>(null);
     const [floydWarshallState, setFloydWarshallState] = useState<FloydWarshallState | null>(null);
+    const [kruskalState, setKruskalState] = useState<KruskalState | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
 
     // Pan and zoom state
@@ -318,6 +319,17 @@ const GraphVisualizer: React.FC = () => {
                 if (!isWeighted) {
                     setIsWeighted(true);
                 }
+            } else if (newAlgorithm === 'kruskal') {
+                setKruskalState(initializeKruskal(graph));
+                setBfsState(null);
+                setDfsState(null);
+                setDijkstraState(null);
+                setFloydWarshallState(null);
+
+                // Force weighted to be true when Kruskal is selected
+                if (!isWeighted) {
+                    setIsWeighted(true);
+                }
             }else {
                 setBfsState(null);
                 setDfsState(null);
@@ -358,6 +370,17 @@ const GraphVisualizer: React.FC = () => {
 
         const newDfsState = stepDFS(dfsState, endNode);
         setDfsState(newDfsState);
+    };
+
+    const handleKruskalStepNext = () => {
+        if (!kruskalState || kruskalState.completed) return;
+
+        const newKruskalState = stepKruskal(kruskalState);
+        setKruskalState(newKruskalState);
+    };
+
+    const handleKruskalReset = () => {
+        setKruskalState(initializeKruskal(graph));
     };
 
     // Handle reset DFS algorithm
@@ -408,6 +431,9 @@ const GraphVisualizer: React.FC = () => {
             else if (algorithmType === 'floydWarshall') {
                 handleFloydWarshallStepNext();
             }
+            else if (algorithmType === 'kruskal') {
+                handleKruskalStepNext();
+            }
         }
 
         // 'R' key for reset
@@ -421,6 +447,9 @@ const GraphVisualizer: React.FC = () => {
             }
             else if (algorithmType === 'floydWarshall') {
                 handleFloydWarshallReset();
+            }
+            else if (algorithmType === 'kruskal') {
+                handleKruskalReset();
             }
         }
     };
@@ -445,6 +474,7 @@ const GraphVisualizer: React.FC = () => {
                         <option value="dfs">Depth-First Search (DFS)</option>
                         <option value="dijkstra">Dijkstra's Algorithm</option>
                         <option value="floydWarshall">Floyd-Warshall Algorithm</option>
+                        <option value="kruskal">Kruskal's Minimum Spanning Tree</option>
                     </select>
                 </div>
 
@@ -586,8 +616,64 @@ const GraphVisualizer: React.FC = () => {
                             const labelX = midX + (offset * Math.cos(perpAngle * Math.PI / 180));
                             const labelY = midY + (offset * Math.sin(perpAngle * Math.PI / 180));
 
+                            // Determine edge styling based on algorithm
+                            let edgeOpacity = 1.0;
+                            let strokeColor;
+                            let strokeWidth = 1;
+                            
                             // Determine if this edge is part of the shortest path
                             let isInShortestPath = false;
+                            // For Kruskal algorithm
+                            if (algorithmType === 'kruskal' && kruskalState) {
+                                // Default all edges to faded
+                                edgeOpacity = 0.3;
+                                strokeColor = graphType === 'tree' ? '#555' :
+                                    graphType === 'cyclic' ? '#E64A19' :
+                                        graphType === 'acyclic' ? '#1976D2' :
+                                            graphType === 'grid' ? '#7B1FA2' : 'black';
+
+                                // Check if this is the current edge being examined
+                                const isCurrentEdge = kruskalState.currentEdgeIndex >= 0 &&
+                                    kruskalState.sortedEdges[kruskalState.currentEdgeIndex].source === edge.source &&
+                                    kruskalState.sortedEdges[kruskalState.currentEdgeIndex].target === edge.target;
+
+                                // Check if this edge is in the MST
+                                const isInMST = kruskalState.mstEdges.some((e: Edge) =>
+                                    (e.source === edge.source && e.target === edge.target) ||
+                                    (!isDirected && e.source === edge.target && e.target === edge.source)
+                                );
+
+                                // Check if edge is part of shortest path between start and end nodes
+                                let isInPath = false;
+                                if (kruskalState.completed && startNode !== null && endNode !== null) {
+                                    const path = getShortestPathInMST(kruskalState.mstEdges, startNode, endNode, graph.nodes.length);
+
+                                    // Check if this edge is part of the path
+                                    for (let i = 0; i < path.length - 1; i++) {
+                                        if ((edge.source === path[i] && edge.target === path[i + 1]) ||
+                                            (!isDirected && edge.source === path[i + 1] && edge.target === path[i])) {
+                                            isInPath = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (isInPath) {
+                                    // Edges in shortest path are pink and fully opaque
+                                    strokeColor = '#FF4081'; // Pink
+                                    edgeOpacity = 1.0;
+                                    strokeWidth = 3;
+                                } else if (isCurrentEdge) {
+                                    // Current edge being examined is blue and fully opaque
+                                    strokeColor = '#2196F3'; // Blue
+                                    edgeOpacity = 1.0;
+                                    strokeWidth = 2;
+                                } else if (isInMST) {
+                                    // Edges in MST are normal color and fully opaque
+                                    edgeOpacity = 1.0;
+                                    strokeWidth = 2;
+                                }
+                            } 
                             if (algorithmType === 'floydWarshall' && floydWarshallState &&
                                 floydWarshallState.completed && startNode !== null && endNode !== null) {
                                 const path = getFloydWarshallPath(floydWarshallState, startNode, endNode);
@@ -643,26 +729,28 @@ const GraphVisualizer: React.FC = () => {
                                                     ? 1.5
                                                     : 1
                                         }
+                                        opacity={edgeOpacity}
                                         strokeDasharray={isInShortestPath ? "none" : "none"}
                                     />
 
                                     {/* Arrow for directed graph */}
                                     {isDirected && (
-                                        <g transform={`translate(${midX},${midY}) rotate(${angle})`}>
+                                        <g transform={`translate(${midX},${midY}) rotate(${angle})`} opacity={edgeOpacity}>
                                             <polygon
                                                 points="-12,-6 0,0 -12,6"
-                                                fill={isInShortestPath ? "#FF4081" : "black"}
+                                                fill={strokeColor}
                                             />
                                         </g>
                                     )}
 
                                     {/* Weight label for weighted graph */}
+                                    {/* Weight label for weighted graph */}
                                     {isWeighted && edge.weight && (
-                                        <g transform={`translate(${labelX},${labelY})`}>
+                                        <g transform={`translate(${labelX},${labelY})`} opacity={edgeOpacity}>
                                             <circle
                                                 r="10"
-                                                fill={isInShortestPath ? "#FFCDD2" : "white"}
-                                                stroke={isInShortestPath ? "#FF4081" : "gray"}
+                                                fill="white"
+                                                stroke="gray"
                                                 strokeWidth="1"
                                             />
                                             <text
@@ -670,7 +758,7 @@ const GraphVisualizer: React.FC = () => {
                                                 dominantBaseline="middle"
                                                 fontSize="10px"
                                                 fontWeight="bold"
-                                                fill={isInShortestPath ? "#D50000" : "black"}
+                                                fill="black"
                                             >
                                                 {edge.weight}
                                             </text>
@@ -1524,6 +1612,111 @@ const GraphVisualizer: React.FC = () => {
                                         <p>Total distance: <span className="font-bold">{distance}</span></p>
                                         <p>Path: {pathStr}</p>
                                         <p className="text-sm mt-2">{pathWithWeights}</p>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    )}
+                    
+                </div>
+            )}
+
+            {/* Kruskal Controls and Info */}
+            {algorithmType === 'kruskal' && (
+                <div className="mt-4 w-full">
+                    <div className="flex justify-between items-center mb-2 bg-gray-100 p-3 rounded border border-gray-300">
+                        <h3 className="font-bold">Kruskal's MST Algorithm</h3>
+
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={handleKruskalReset}
+                                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                            >
+                                Reset (R)
+                            </button>
+                            <button
+                                onClick={handleKruskalStepNext}
+                                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                                disabled={!kruskalState || kruskalState.completed}
+                            >
+                                Step Next (→)
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Algorithm Status */}
+                    {kruskalState && (
+                        <div className="bg-blue-100 border border-blue-500 text-blue-700 px-4 py-2 rounded mb-4">
+                            <p className="font-bold">
+                                {kruskalState.completed
+                                    ? "Algorithm Completed! Minimum Spanning Tree constructed."
+                                    : `Step ${kruskalState.currentStep}: Examining edge ${kruskalState.currentEdgeIndex + 1}/${kruskalState.sortedEdges.length}`}
+                            </p>
+                            {kruskalState.currentEdgeIndex >= 0 && kruskalState.currentEdgeIndex < kruskalState.sortedEdges.length && (
+                                <p>
+                                    Current edge:
+                                    {graph.nodes.find(n => n.id === kruskalState.sortedEdges[kruskalState.currentEdgeIndex].source)?.label || kruskalState.sortedEdges[kruskalState.currentEdgeIndex].source} →
+                                    {graph.nodes.find(n => n.id === kruskalState.sortedEdges[kruskalState.currentEdgeIndex].target)?.label || kruskalState.sortedEdges[kruskalState.currentEdgeIndex].target}
+                                    (Weight: {kruskalState.sortedEdges[kruskalState.currentEdgeIndex].weight || 1})
+                                </p>
+                            )}
+                            {kruskalState.completed && (
+                                <p>Total MST Weight: {kruskalState.mstEdges.reduce((sum: number, edge: Edge) => sum + (edge.weight ?? 1), 0)}</p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* MST Edges Display */}
+                    {kruskalState && (
+                        <div className="mb-4">
+                            <h4 className="font-medium mb-2">MST Edges:</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {kruskalState.mstEdges.length === 0 ? (
+                                    <span className="italic text-gray-500">None yet</span>
+                                ) : (
+                                    kruskalState.mstEdges.map((edge, index) => (
+                                        <span key={`mst-edge-${index}`} className="inline-block px-2 py-1 bg-green-100 border border-green-200 rounded">
+                                            {graph.nodes.find(n => n.id === edge.source)?.label || edge.source} →
+                                            {graph.nodes.find(n => n.id === edge.target)?.label || edge.target}
+                                            {edge.weight ? ` (${edge.weight})` : ''}
+                                        </span>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Path Display if Start and End Nodes are Selected */}
+                    {kruskalState && kruskalState.completed && startNode !== null && endNode !== null && (
+                        <div className="mt-4 p-4 bg-green-100 border border-green-500 rounded">
+                            <h4 className="font-medium mb-2">
+                                Shortest Path in MST from {graph.nodes[startNode]?.label || startNode} to {graph.nodes[endNode]?.label || endNode}:
+                            </h4>
+
+                            {(() => {
+                                const path = getShortestPathInMST(kruskalState.mstEdges, startNode, endNode, graph.nodes.length);
+                                if (path.length <= 1) {
+                                    return <p className="text-red-500">No path exists in the MST</p>;
+                                }
+
+                                const pathStr = path.map(p => graph.nodes.find(n => n.id === p)?.label || p).join(' → ');
+
+                                // Calculate total path weight
+                                let totalWeight = 0;
+                                for (let i = 0; i < path.length - 1; i++) {
+                                    for (const edge of kruskalState.mstEdges) {
+                                        if ((edge.source === path[i] && edge.target === path[i + 1]) ||
+                                            (!isDirected && edge.source === path[i + 1] && edge.target === path[i])) {
+                                            totalWeight += edge.weight || 1;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                return (
+                                    <>
+                                        <p>Total path weight: <span className="font-bold">{totalWeight}</span></p>
+                                        <p>Path: {pathStr}</p>
                                     </>
                                 );
                             })()}

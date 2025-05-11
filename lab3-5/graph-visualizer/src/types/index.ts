@@ -1,7 +1,7 @@
 // Define all shared types for the application
 export type GraphType = 'complete' | 'dense' | 'sparse' | 'tree' | 'connected' | 'disconnected' | 'cyclic' | 'acyclic' | 'grid';
-// Update the AlgorithmType
-export type AlgorithmType = 'none' | 'bfs' | 'dfs' | 'dijkstra' | 'floydWarshall';
+export type AlgorithmType = 'none' | 'bfs' | 'dfs' | 'dijkstra' | 'floydWarshall' | 'kruskal';
+
 
 
 export type Node = {
@@ -101,4 +101,19 @@ export type FloydWarshallState = {
     pathFound: boolean;         // Whether a path was found
     startNode: number | null;   // The starting node for path visualization
     lastUpdated?: boolean;      // Flag indicating if the last step updated a value
+};
+
+export type KruskalState = {
+    sortedEdges: Edge[];          // Edges sorted by weight
+    currentEdgeIndex: number;     // Current edge being examined
+    mstEdges: Edge[];             // Edges in the minimum spanning tree
+    disjointSets: number[];       // Track sets for cycle detection
+    history: {
+        currentEdgeIndex: number,
+        mstEdges: Edge[],
+        disjointSets: number[]
+    }[];
+    currentStep: number;
+    isRunning: boolean;
+    completed: boolean;
 };
