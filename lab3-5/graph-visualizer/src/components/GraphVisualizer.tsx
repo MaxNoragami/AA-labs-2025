@@ -586,6 +586,21 @@ const GraphVisualizer: React.FC = () => {
                             const labelX = midX + (offset * Math.cos(perpAngle * Math.PI / 180));
                             const labelY = midY + (offset * Math.sin(perpAngle * Math.PI / 180));
 
+                            // Determine if this edge is part of the shortest path
+                            let isInShortestPath = false;
+                            if (algorithmType === 'floydWarshall' && floydWarshallState &&
+                                floydWarshallState.completed && startNode !== null && endNode !== null) {
+                                const path = getFloydWarshallPath(floydWarshallState, startNode, endNode);
+                                // Check if this edge is part of the path
+                                for (let i = 0; i < path.length - 1; i++) {
+                                    if ((edge.source === path[i] && edge.target === path[i + 1]) ||
+                                        (!isDirected && edge.source === path[i + 1] && edge.target === path[i])) {
+                                        isInShortestPath = true;
+                                        break;
+                                    }
+                                }
+                            }
+
                             return (
                                 <g key={`edge-${index}`}>
                                     {/* Edge line */}
@@ -595,24 +610,27 @@ const GraphVisualizer: React.FC = () => {
                                         x2={targetNode.x}
                                         y2={targetNode.y}
                                         stroke={
-                                            graphType === 'tree'
-                                                ? '#555'
-                                                : graphType === 'cyclic'
-                                                    ? '#E64A19'
-                                                    : graphType === 'acyclic'
-                                                        ? '#1976D2'
-                                                        : graphType === 'grid'
-                                                            ? '#7B1FA2' // Dark purple for grid
-                                                            : 'black'
+                                            isInShortestPath ? '#FF4081' : // Bright pink for shortest path
+                                                graphType === 'tree'
+                                                    ? '#555'
+                                                    : graphType === 'cyclic'
+                                                        ? '#E64A19'
+                                                        : graphType === 'acyclic'
+                                                            ? '#1976D2'
+                                                            : graphType === 'grid'
+                                                                ? '#7B1FA2' // Dark purple for grid
+                                                                : 'black'
                                         }
                                         strokeWidth={
-                                            graphType === 'tree' ||
-                                                graphType === 'cyclic' ||
-                                                graphType === 'acyclic' ||
-                                                graphType === 'grid'
-                                                ? 1.5
-                                                : 1
+                                            isInShortestPath ? 3 : // Thicker line for shortest path
+                                                graphType === 'tree' ||
+                                                    graphType === 'cyclic' ||
+                                                    graphType === 'acyclic' ||
+                                                    graphType === 'grid'
+                                                    ? 1.5
+                                                    : 1
                                         }
+                                        strokeDasharray={isInShortestPath ? "none" : "none"}
                                     />
 
                                     {/* Arrow for directed graph */}
@@ -620,7 +638,7 @@ const GraphVisualizer: React.FC = () => {
                                         <g transform={`translate(${midX},${midY}) rotate(${angle})`}>
                                             <polygon
                                                 points="-12,-6 0,0 -12,6"
-                                                fill="black"
+                                                fill={isInShortestPath ? "#FF4081" : "black"}
                                             />
                                         </g>
                                     )}
@@ -628,12 +646,18 @@ const GraphVisualizer: React.FC = () => {
                                     {/* Weight label for weighted graph */}
                                     {isWeighted && edge.weight && (
                                         <g transform={`translate(${labelX},${labelY})`}>
-                                            <circle r="10" fill="white" stroke="gray" strokeWidth="1" />
+                                            <circle
+                                                r="10"
+                                                fill={isInShortestPath ? "#FFCDD2" : "white"}
+                                                stroke={isInShortestPath ? "#FF4081" : "gray"}
+                                                strokeWidth="1"
+                                            />
                                             <text
                                                 textAnchor="middle"
                                                 dominantBaseline="middle"
                                                 fontSize="10px"
                                                 fontWeight="bold"
+                                                fill={isInShortestPath ? "#D50000" : "black"}
                                             >
                                                 {edge.weight}
                                             </text>
