@@ -601,6 +601,19 @@ const GraphVisualizer: React.FC = () => {
                                 }
                             }
 
+                            else if (algorithmType === 'dijkstra' && dijkstraState &&
+                                dijkstraState.pathFound && startNode !== null && endNode !== null) {
+                                const path = getShortestPath(dijkstraState, endNode);
+                                // Check if this edge is part of the path
+                                for (let i = 0; i < path.length - 1; i++) {
+                                    if ((edge.source === path[i] && edge.target === path[i + 1]) ||
+                                        (!isDirected && edge.source === path[i + 1] && edge.target === path[i])) {
+                                        isInShortestPath = true;
+                                        break;
+                                    }
+                                }
+                            }
+
                             return (
                                 <g key={`edge-${index}`}>
                                     {/* Edge line */}
@@ -673,7 +686,14 @@ const GraphVisualizer: React.FC = () => {
                             let fillColor = '#4CAF50'; // Default green color
                             // Set color based on algorithm status
                             if (algorithmType === 'dijkstra') {
-                                if (node.dijkstraStatus === 'processed') {
+                                const isInShortestPath = dijkstraState && dijkstraState.pathFound &&
+                                    startNode !== null && endNode !== null &&
+                                    node.id !== startNode && node.id !== endNode &&
+                                    getShortestPath(dijkstraState, endNode).includes(node.id);
+
+                                if (isInShortestPath) {
+                                    fillColor = '#E91E63'; // Pink for nodes in shortest path (matching Floyd-Warshall)
+                                } else if (node.dijkstraStatus === 'processed') {
                                     fillColor = '#2196F3'; // Blue for processed nodes
                                 } else if (node.dijkstraStatus === 'inQueue') {
                                     fillColor = '#FFC107'; // Yellow for nodes in queue
@@ -1195,6 +1215,50 @@ const GraphVisualizer: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Specific Path Display if End Node is selected */}
+                    {dijkstraState && dijkstraState.pathFound && startNode !== null && endNode !== null && (
+                        <div className="mt-4 p-4 bg-green-100 border border-green-500 rounded">
+                            <h4 className="font-medium mb-2">
+                                Shortest Path from {graph.nodes[startNode]?.label || startNode} to {graph.nodes[endNode]?.label || endNode}:
+                            </h4>
+
+                            {(() => {
+                                const path = getShortestPath(dijkstraState, endNode);
+                                if (path.length <= 1) {
+                                    return <p className="text-red-500">No path exists</p>;
+                                }
+
+                                const pathStr = path.map(p => graph.nodes[p]?.label || p).join(' → ');
+                                const distance = dijkstraState.distances[endNode];
+
+                                let pathWithWeights = '';
+                                for (let i = 0; i < path.length - 1; i++) {
+                                    const from = path[i];
+                                    const to = path[i + 1];
+
+                                    // Find the edge
+                                    const edge = graph.edges.find(e =>
+                                        (e.source === from && e.target === to) ||
+                                        (!isDirected && e.source === to && e.target === from)
+                                    );
+
+                                    const weight = edge?.weight || 1;
+
+                                    pathWithWeights += `[${graph.nodes[from]?.label || from}] -- ${weight} --> `;
+                                }
+                                pathWithWeights += `[${graph.nodes[path[path.length - 1]]?.label || path[path.length - 1]}]`;
+
+                                return (
+                                    <>
+                                        <p>Total distance: <span className="font-bold">{distance}</span></p>
+                                        <p>Path: {pathStr}</p>
+                                        <p className="text-sm mt-2">{pathWithWeights}</p>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    )}
+
                     {/* Distance Table */}
                     <div className="flex gap-4">
                         <div className="flex-1 bg-gray-100 p-3 rounded border border-gray-300">
@@ -1225,6 +1289,8 @@ const GraphVisualizer: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+
             )}
             {/* Floyd-Warshall Controls and Info */}
             { algorithmType === 'floydWarshall' && (
