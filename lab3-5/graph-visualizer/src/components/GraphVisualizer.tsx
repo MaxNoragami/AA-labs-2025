@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Graph, Node, Edge, GraphType, AlgorithmType, BFSState, DFSState, DijkstraState } from '../types';
+import { Graph, Node, Edge, GraphType, AlgorithmType, BFSState, DFSState, DijkstraState, FloydWarshallState } from '../types';
 import { generateGraph } from '../generators';
-import { initializeBFS, stepBFS, resetBFS, initializeDFS, stepDFS, resetDFS, initializeDijkstra, stepDijkstra, resetDijkstra, getShortestPath } from '../algorithms';
+import { initializeBFS, stepBFS, resetBFS, initializeDFS, stepDFS, resetDFS, initializeDijkstra, stepDijkstra, resetDijkstra, getShortestPath, initializeFloydWarshall, stepFloydWarshall, getFloydWarshallPath } from '../algorithms';
 
 const GraphVisualizer: React.FC = () => {
     const [graphType, setGraphType] = useState<GraphType>('complete');
@@ -17,6 +17,7 @@ const GraphVisualizer: React.FC = () => {
     const [bfsState, setBfsState] = useState<BFSState | null>(null);
     const [dfsState, setDfsState] = useState<DFSState | null>(null);
     const [dijkstraState, setDijkstraState] = useState<DijkstraState | null>(null);
+    const [floydWarshallState, setFloydWarshallState] = useState<FloydWarshallState | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
 
     // Pan and zoom state
@@ -307,7 +308,17 @@ const GraphVisualizer: React.FC = () => {
                 setDijkstraState(initializeDijkstra(graph, startNode, isDirected));
                 setBfsState(null);
                 setDfsState(null);
-            } else {
+            } else if (newAlgorithm === 'floydWarshall') {
+                setFloydWarshallState(initializeFloydWarshall(graph, startNode, isDirected));
+                setBfsState(null);
+                setDfsState(null);
+                setDijkstraState(null);
+
+                // Force weighted to be true when Floyd-Warshall is selected
+                if (!isWeighted) {
+                    setIsWeighted(true);
+                }
+            }else {
                 setBfsState(null);
                 setDfsState(null);
                 setDijkstraState(null);
@@ -357,6 +368,17 @@ const GraphVisualizer: React.FC = () => {
         setDfsState(newDfsState);
     };
 
+    const handleFloydWarshallStepNext = () => {
+        if (!floydWarshallState || floydWarshallState.completed) return;
+
+        const newFloydWarshallState = stepFloydWarshall(floydWarshallState);
+        setFloydWarshallState(newFloydWarshallState);
+    };
+
+    const handleFloydWarshallReset = () => {
+        setFloydWarshallState(initializeFloydWarshall(graph, startNode, isDirected));
+    };
+
     // Add these functions for Dijkstra controls
     const handleDijkstraStepNext = () => {
         if (!dijkstraState || dijkstraState.priorityQueue.length === 0 || dijkstraState.pathFound) return;
@@ -383,6 +405,9 @@ const GraphVisualizer: React.FC = () => {
             } else if (algorithmType === 'dijkstra') {
                 handleDijkstraStepNext();
             }
+            else if (algorithmType === 'floydWarshall') {
+                handleFloydWarshallStepNext();
+            }
         }
 
         // 'R' key for reset
@@ -393,6 +418,9 @@ const GraphVisualizer: React.FC = () => {
                 handleDfsReset();
             } else if (algorithmType === 'dijkstra') {
                 handleDijkstraReset();
+            }
+            else if (algorithmType === 'floydWarshall') {
+                handleFloydWarshallReset();
             }
         }
     };
@@ -416,6 +444,7 @@ const GraphVisualizer: React.FC = () => {
                         <option value="bfs">Breadth-First Search (BFS)</option>
                         <option value="dfs">Depth-First Search (DFS)</option>
                         <option value="dijkstra">Dijkstra's Algorithm</option>
+                        <option value="floydWarshall">Floyd-Warshall Algorithm</option>
                     </select>
                 </div>
 
@@ -638,7 +667,31 @@ const GraphVisualizer: React.FC = () => {
                                         fillColor = '#4CAF50';
                                     }
                                 }
-                            } else
+                            }
+                            
+                            else if (algorithmType === 'floydWarshall') {
+                                // Highlight nodes differently based on Floyd-Warshall state
+                                if (floydWarshallState && floydWarshallState.currentK >= 0) {
+                                    if (node.id === startNode) {
+                                        fillColor = '#76FF03'; // Start node
+                                    } else if (node.id === endNode) {
+                                        fillColor = '#00B0FF'; // End node
+                                    } else if (node.id === floydWarshallState.currentK) {
+                                        fillColor = '#FFC107'; // Current k node (yellow)
+                                    } else if (
+                                        floydWarshallState.completed &&
+                                        startNode !== null &&
+                                        endNode !== null &&
+                                        getFloydWarshallPath(floydWarshallState, startNode, endNode).includes(node.id)
+                                    ) {
+                                        fillColor = '#E91E63'; // Node in shortest path (pink)
+                                    } else {
+                                        // Default color
+                                        fillColor = '#4CAF50';
+                                    }
+                                }
+                            }
+                            else
                             if (algorithmType === 'bfs' || algorithmType === 'dfs') {
                                 if (node.status === 'visited') {
                                     fillColor = '#000000'; // Black for visited
@@ -1147,6 +1200,163 @@ const GraphVisualizer: React.FC = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+            {/* Floyd-Warshall Controls and Info */}
+            {algorithmType === 'floydWarshall' && (
+                <div className="mt-4 w-full">
+                    <div className="flex justify-between items-center mb-2 bg-gray-100 p-3 rounded border border-gray-300">
+                        <h3 className="font-bold">Floyd-Warshall Control</h3>
+
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={handleFloydWarshallReset}
+                                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                            >
+                                Reset (R)
+                            </button>
+                            <button
+                                onClick={handleFloydWarshallStepNext}
+                                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                                disabled={!floydWarshallState || floydWarshallState.completed}
+                            >
+                                Step Next (→)
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Algorithm Status */}
+                    {floydWarshallState && (
+                        <div className="bg-blue-100 border border-blue-500 text-blue-700 px-4 py-2 rounded mb-4">
+                            <p className="font-bold">
+                                {floydWarshallState.completed
+                                    ? "Algorithm Completed! All shortest paths calculated."
+                                    : `Step ${floydWarshallState.currentStep}: Processing k=${floydWarshallState.currentK}, i=${floydWarshallState.currentI}, j=${floydWarshallState.currentJ}`}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Distance Matrix Table */}
+                    {floydWarshallState && (
+                        <div className="mb-4">
+                            <h4 className="font-medium mb-2">Distance Matrix:</h4>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full border-collapse border border-gray-300">
+                                    <thead>
+                                        <tr>
+                                            <th className="border border-gray-300 p-2 bg-gray-100"></th>
+                                            {graph.nodes.map((node) => (
+                                                <th key={`col-${node.id}`} className="border border-gray-300 p-2 bg-gray-100">
+                                                    {node.label}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {floydWarshallState.dist.map((row, i) => (
+                                            <tr key={`row-${i}`}>
+                                                <th className="border border-gray-300 p-2 bg-gray-100">
+                                                    {graph.nodes[i]?.label || i}
+                                                </th>
+                                                {row.map((dist, j) => (
+                                                    <td
+                                                        key={`cell-${i}-${j}`}
+                                                        className={`border border-gray-300 p-2 text-center ${i === floydWarshallState.currentI && j === floydWarshallState.currentJ
+                                                                ? 'bg-yellow-200'
+                                                                : ''
+                                                            } ${floydWarshallState.currentK === i || floydWarshallState.currentK === j
+                                                                ? 'bg-blue-100'
+                                                                : ''
+                                                            }`}
+                                                    >
+                                                        {dist === Number.MAX_SAFE_INTEGER ? '∞' : dist}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Path Display Section */}
+                    {floydWarshallState && floydWarshallState.completed && startNode !== null && (
+                        <div className="mt-4">
+                            <h4 className="font-medium mb-2">Shortest Paths from Node {graph.nodes[startNode]?.label || startNode}:</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {graph.nodes.map((node) => {
+                                    if (node.id === startNode) return null;
+
+                                    const path = getFloydWarshallPath(floydWarshallState, startNode, node.id);
+                                    const distance = path.length > 0 ? floydWarshallState.dist[startNode][node.id] : '∞';
+
+                                    return (
+                                        <div
+                                            key={`path-${node.id}`}
+                                            className={`p-2 rounded border ${path.length > 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+                                                }`}
+                                        >
+                                            <p className="font-bold">
+                                                To {node.label}: {distance === '∞' ? '∞' : `${distance} units`}
+                                            </p>
+                                            {path.length > 0 ? (
+                                                <p className="text-sm">
+                                                    Path: {path.map(p => graph.nodes[p]?.label || p).join(' → ')}
+                                                </p>
+                                            ) : (
+                                                <p className="text-sm text-red-500">No path exists</p>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Specific Path Display if End Node is selected */}
+                    {floydWarshallState && floydWarshallState.completed && startNode !== null && endNode !== null && (
+                        <div className="mt-4 p-4 bg-green-100 border border-green-500 rounded">
+                            <h4 className="font-medium mb-2">
+                                Shortest Path from {graph.nodes[startNode]?.label || startNode} to {graph.nodes[endNode]?.label || endNode}:
+                            </h4>
+
+                            {(() => {
+                                const path = getFloydWarshallPath(floydWarshallState, startNode, endNode);
+                                if (path.length <= 1) {
+                                    return <p className="text-red-500">No path exists</p>;
+                                }
+
+                                const pathStr = path.map(p => graph.nodes[p]?.label || p).join(' → ');
+                                const distance = floydWarshallState.dist[startNode][endNode];
+
+                                let pathWithWeights = '';
+                                for (let i = 0; i < path.length - 1; i++) {
+                                    const from = path[i];
+                                    const to = path[i + 1];
+
+                                    // Find the edge
+                                    const edge = graph.edges.find(e =>
+                                        (e.source === from && e.target === to) ||
+                                        (!isDirected && e.source === to && e.target === from)
+                                    );
+
+                                    const weight = edge?.weight || 1;
+
+                                    pathWithWeights += `[${graph.nodes[from]?.label || from}] -- ${weight} --> `;
+                                }
+                                pathWithWeights += `[${graph.nodes[path[path.length - 1]]?.label || path[path.length - 1]}]`;
+
+                                return (
+                                    <>
+                                        <p>Total distance: <span className="font-bold">{distance}</span></p>
+                                        <p>Path: {pathStr}</p>
+                                        <p className="text-sm mt-2">{pathWithWeights}</p>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

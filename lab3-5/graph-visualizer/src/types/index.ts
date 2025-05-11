@@ -1,7 +1,7 @@
 // Define all shared types for the application
 export type GraphType = 'complete' | 'dense' | 'sparse' | 'tree' | 'connected' | 'disconnected' | 'cyclic' | 'acyclic' | 'grid';
 // Update the AlgorithmType
-export type AlgorithmType = 'none' | 'bfs' | 'dfs' | 'dijkstra';
+export type AlgorithmType = 'none' | 'bfs' | 'dfs' | 'dijkstra' | 'floydWarshall';
 
 
 export type Node = {
@@ -78,4 +78,25 @@ export type DijkstraState = {
     processedNode?: number; // Track the most recently processed node
     newlyQueuedNodes?: number[]; // Track nodes just added to queue
     nodeToDistanceMap: { [key: number]: number }; // Map of node IDs to their finalized distances
+};
+
+export type FloydWarshallState = {
+    dist: number[][];           // Distance matrix
+    next: number[][];           // Next node matrix for path reconstruction
+    currentK: number;           // Current k in iteration
+    currentI: number;           // Current i in iteration
+    currentJ: number;           // Current j in iteration
+    nodeCount: number;          // Number of nodes in the graph
+    history: {                  // History of states for visualization
+        dist: number[][],
+        next: number[][],
+        currentK: number,
+        currentI: number,
+        currentJ: number
+    }[];
+    currentStep: number;        // Current step in the algorithm
+    isRunning: boolean;         // Whether the algorithm is running
+    completed: boolean;         // Whether the algorithm has completed
+    pathFound: boolean;         // Whether a path was found
+    startNode: number | null;   // The starting node for path visualization
 };
