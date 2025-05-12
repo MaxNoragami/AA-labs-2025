@@ -634,6 +634,7 @@ const GraphVisualizer: React.FC = () => {
 
                                 // Check if this is the current edge being examined
                                 const isCurrentEdge = kruskalState.currentEdgeIndex >= 0 &&
+                                    kruskalState.currentEdgeIndex < kruskalState.sortedEdges.length && // Bounds check
                                     kruskalState.sortedEdges[kruskalState.currentEdgeIndex].source === edge.source &&
                                     kruskalState.sortedEdges[kruskalState.currentEdgeIndex].target === edge.target;
 
@@ -647,7 +648,6 @@ const GraphVisualizer: React.FC = () => {
                                 let isInPath = false;
                                 if (kruskalState.completed && startNode !== null && endNode !== null) {
                                     const path = getShortestPathInMST(kruskalState.mstEdges, startNode, endNode, graph.nodes.length);
-
                                     // Check if this edge is part of the path
                                     for (let i = 0; i < path.length - 1; i++) {
                                         if ((edge.source === path[i] && edge.target === path[i + 1]) ||
@@ -658,22 +658,43 @@ const GraphVisualizer: React.FC = () => {
                                     }
                                 }
 
+                                // First check if the edge is part of a path (this has highest priority)
                                 if (isInPath) {
                                     // Edges in shortest path are pink and fully opaque
                                     strokeColor = '#FF4081'; // Pink
                                     edgeOpacity = 1.0;
                                     strokeWidth = 3;
-                                } else if (isCurrentEdge) {
-                                    // Current edge being examined is blue and fully opaque
-                                    strokeColor = '#2196F3'; // Blue
-                                    edgeOpacity = 1.0;
-                                    strokeWidth = 2;
-                                } else if (isInMST) {
-                                    // Edges in MST are normal color and fully opaque
-                                    edgeOpacity = 1.0;
-                                    strokeWidth = 2;
                                 }
-                            } 
+                                // Then check if algorithm is completed
+                                else if (kruskalState.completed) {
+                                    if (isInMST) {
+                                        // MST edge styling when completed
+                                        strokeColor = graphType === 'tree' ? '#555' :
+                                            graphType === 'cyclic' ? '#E64A19' :
+                                                graphType === 'acyclic' ? '#1976D2' :
+                                                    graphType === 'grid' ? '#7B1FA2' : 'black';
+                                        edgeOpacity = 1.0;
+                                        strokeWidth = 2;
+                                    } else {
+                                        // Non-MST edge styling when completed
+                                        edgeOpacity = 0.3;
+                                        strokeWidth = 1;
+                                    }
+                                }
+                                // Finally handle in-progress styling
+                                else {
+                                    if (isCurrentEdge) {
+                                        // Current edge being examined is blue and fully opaque
+                                        strokeColor = '#2196F3'; // Blue
+                                        edgeOpacity = 1.0;
+                                        strokeWidth = 2;
+                                    } else if (isInMST) {
+                                        // Edges in MST are normal color and fully opaque
+                                        edgeOpacity = 1.0;
+                                        strokeWidth = 2;
+                                    }
+                                }
+                            }
                             if (algorithmType === 'floydWarshall' && floydWarshallState &&
                                 floydWarshallState.completed && startNode !== null && endNode !== null) {
                                 const path = getFloydWarshallPath(floydWarshallState, startNode, endNode);

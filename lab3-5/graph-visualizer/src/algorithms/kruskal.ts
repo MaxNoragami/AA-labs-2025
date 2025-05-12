@@ -47,6 +47,7 @@ export const initializeKruskal = (graph: Graph): KruskalState => {
         currentEdgeIndex: -1, // Start at -1 since we'll increment on first step
         mstEdges: [],
         disjointSets: Array.from({ length: graph.nodes.length }, (_, i) => i),
+        disjointSetRanks: Array(graph.nodes.length).fill(1),
         history: [],
         currentStep: 0,
         isRunning: false,
@@ -65,6 +66,7 @@ export const stepKruskal = (state: KruskalState): KruskalState => {
     // Initialize DisjointSet from current state
     const ds = new DisjointSet(disjointSets.length);
     ds.parent = [...newDisjointSets]; // Copy current parent state
+    ds.rank = [...state.disjointSetRanks];
 
     // If all edges have been processed or MST is complete
     if (currentEdgeIndex >= sortedEdges.length - 1 || newMstEdges.length >= disjointSets.length - 1) {
@@ -79,6 +81,7 @@ export const stepKruskal = (state: KruskalState): KruskalState => {
                     currentEdgeIndex: currentEdgeIndex + 1,
                     mstEdges: newMstEdges,
                     disjointSets: newDisjointSets
+                    
                 }
             ],
             currentStep: state.currentStep + 1
@@ -97,6 +100,7 @@ export const stepKruskal = (state: KruskalState): KruskalState => {
     if (sourceSet !== targetSet) {
         ds.unite(currentEdge.source, currentEdge.target);
         newMstEdges.push(currentEdge);
+        
 
         // Update disjointSets to reflect new disjoint set state
         for (let i = 0; i < newDisjointSets.length; i++) {
@@ -104,11 +108,15 @@ export const stepKruskal = (state: KruskalState): KruskalState => {
         }
     }
 
+    const newDisjointSetRanks = [...ds.rank];
+    
+
     return {
         ...state,
         currentEdgeIndex: nextEdgeIndex,
         mstEdges: newMstEdges,
         disjointSets: newDisjointSets,
+        disjointSetRanks: newDisjointSetRanks,
         history: [
             ...state.history,
             {

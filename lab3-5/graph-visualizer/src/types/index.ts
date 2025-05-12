@@ -108,6 +108,7 @@ export type KruskalState = {
     currentEdgeIndex: number;     // Current edge being examined
     mstEdges: Edge[];             // Edges in the minimum spanning tree
     disjointSets: number[];       // Track sets for cycle detection
+    disjointSetRanks: number[];   // Add this to store ranks
     history: {
         currentEdgeIndex: number,
         mstEdges: Edge[],
