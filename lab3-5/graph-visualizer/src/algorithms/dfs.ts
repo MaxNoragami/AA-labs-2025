@@ -1,11 +1,11 @@
 import { Node, Edge, Graph, DFSState } from '../types';
 import { buildAdjacencyList } from '../utils';
 
-// DFS implementation
+
 export const initializeDFS = (graph: Graph, startNode: number, isDirected: boolean): DFSState => {
     const adjList = buildAdjacencyList(graph.nodes, graph.edges, isDirected);
 
-    // Initialize DFS state
+    
     const dfsState: DFSState = {
         stack: [startNode],
         visited: new Set<number>(),
@@ -18,7 +18,7 @@ export const initializeDFS = (graph: Graph, startNode: number, isDirected: boole
         adjList
     };
 
-    // Save initial state to history
+    
     dfsState.history.push({
         stack: [...dfsState.stack],
         visited: new Set(dfsState.visited),
@@ -28,19 +28,19 @@ export const initializeDFS = (graph: Graph, startNode: number, isDirected: boole
     return dfsState;
 };
 
-// Execute a single step of DFS
+
 export const stepDFS = (dfsState: DFSState, endNode: number | null): DFSState => {
     const { stack, visited, toVisit, adjList } = dfsState;
 
-    // If stack is empty, there's nothing more to do
+    
     if (stack.length === 0) {
         return { ...dfsState, isRunning: false, pathFound: false };
     }
 
-    // Pop the top node from the stack
+    
     const current = stack.pop()!;
 
-    // Check if we reached the end node
+    
     if (endNode !== null && current === endNode) {
         const newVisited = new Set([...visited, current]);
         const newToVisit = new Set(toVisit);
@@ -66,32 +66,32 @@ export const stepDFS = (dfsState: DFSState, endNode: number | null): DFSState =>
         };
     }
 
-    // Mark as visited
+    
     const newVisited = new Set([...visited, current]);
     const newToVisit = new Set(toVisit);
     newToVisit.delete(current);
 
-    // Get all adjacent vertices
+    
     const neighbors = adjList[current];
     const newStack = [...stack];
 
-    // For each adjacent vertex, if not visited and not in stack, add to stack
-    // Processing in reverse order for natural left-to-right traversal
+    
+    
     for (let i = neighbors.length - 1; i >= 0; i--) {
         const neighbor = neighbors[i];
         if (!newVisited.has(neighbor) && !newToVisit.has(neighbor)) {
             newStack.push(neighbor);
             newToVisit.add(neighbor);
 
-            // If this neighbor is the target, we'll find it in the next step
+            
             if (endNode !== null && neighbor === endNode) {
-                // Mark it but don't modify the state yet
+                
                 dfsState.targetFound = true;
             }
         }
     }
 
-    // Create the new state with all updates
+    
     const newState = {
         ...dfsState,
         stack: newStack,
@@ -111,7 +111,7 @@ export const stepDFS = (dfsState: DFSState, endNode: number | null): DFSState =>
     return newState;
 };
 
-// Reset the DFS algorithm
+
 export const resetDFS = (graph: Graph, startNode: number, isDirected: boolean): DFSState => {
     return initializeDFS(graph, startNode, isDirected);
 };

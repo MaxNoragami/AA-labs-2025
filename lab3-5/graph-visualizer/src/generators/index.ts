@@ -9,7 +9,7 @@ import { generateCyclicGraph } from './cyclicGraph.ts';
 import { generateAcyclicGraph } from './acyclicGraph.ts';
 import { generateGridGraph } from './gridGraph.ts';
 
-// This function serves as a factory method to create graphs based on type
+
 export const generateGraph = (
     type: string,
     nodeCount: number,
@@ -32,7 +32,7 @@ export const generateGraph = (
         case 'cyclic':
             return generateCyclicGraph(nodeCount, isWeighted);
         case 'acyclic':
-            // For acyclic graph, force directed to be true since DAGs are directed by nature
+            
             return generateAcyclicGraph(nodeCount, isWeighted);
         case 'grid':
             return generateGridGraph(nodeCount, isWeighted);
@@ -41,7 +41,7 @@ export const generateGraph = (
     }
 };
 
-// Export all individual generators
+
 export {
     generateCompleteGraph,
     generateDenseGraph,

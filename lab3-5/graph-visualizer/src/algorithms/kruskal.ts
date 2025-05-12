@@ -1,6 +1,6 @@
 import { Graph, Edge, KruskalState } from '../types';
 
-// DisjointSet implementation for Kruskal's algorithm
+
 class DisjointSet {
     parent: number[];
     rank: number[];
@@ -33,18 +33,18 @@ class DisjointSet {
     }
 }
 
-// Initialize Kruskal's algorithm
+
 export const initializeKruskal = (graph: Graph): KruskalState => {
-    // Sort edges by weight
+    
     const sortedEdges = [...graph.edges].sort((a: Edge, b: Edge) => {
-        const weightA = a.weight ?? 1; // Use nullish coalescing instead of ||
+        const weightA = a.weight ?? 1; 
         const weightB = b.weight ?? 1;
         return weightA - weightB;
     });
 
     return {
         sortedEdges,
-        currentEdgeIndex: -1, // Start at -1 since we'll increment on first step
+        currentEdgeIndex: -1, 
         mstEdges: [],
         disjointSets: Array.from({ length: graph.nodes.length }, (_, i) => i),
         disjointSetRanks: Array(graph.nodes.length).fill(1),
@@ -55,20 +55,20 @@ export const initializeKruskal = (graph: Graph): KruskalState => {
     };
 };
 
-// Execute a single step of Kruskal's algorithm
+
 export const stepKruskal = (state: KruskalState): KruskalState => {
     const { sortedEdges, currentEdgeIndex, mstEdges, disjointSets } = state;
 
-    // Create new instances of arrays to avoid mutation
+    
     const newMstEdges = [...mstEdges];
     const newDisjointSets = [...disjointSets];
 
-    // Initialize DisjointSet from current state
+    
     const ds = new DisjointSet(disjointSets.length);
-    ds.parent = [...newDisjointSets]; // Copy current parent state
+    ds.parent = [...newDisjointSets]; 
     ds.rank = [...state.disjointSetRanks];
 
-    // If all edges have been processed or MST is complete
+    
     if (currentEdgeIndex >= sortedEdges.length - 1 || newMstEdges.length >= disjointSets.length - 1) {
         return {
             ...state,
@@ -88,21 +88,21 @@ export const stepKruskal = (state: KruskalState): KruskalState => {
         };
     }
 
-    // Move to next edge
+    
     const nextEdgeIndex = currentEdgeIndex + 1;
     const currentEdge = sortedEdges[nextEdgeIndex];
 
-    // Check if adding this edge creates a cycle
+    
     const sourceSet = ds.find(currentEdge.source);
     const targetSet = ds.find(currentEdge.target);
 
-    // If no cycle, add to MST
+    
     if (sourceSet !== targetSet) {
         ds.unite(currentEdge.source, currentEdge.target);
         newMstEdges.push(currentEdge);
         
 
-        // Update disjointSets to reflect new disjoint set state
+        
         for (let i = 0; i < newDisjointSets.length; i++) {
             newDisjointSets[i] = ds.find(i);
         }
@@ -129,19 +129,19 @@ export const stepKruskal = (state: KruskalState): KruskalState => {
     };
 };
 
-// Reset Kruskal's algorithm
+
 export const resetKruskal = (graph: Graph): KruskalState => {
     return initializeKruskal(graph);
 };
 
-// Find shortest path in MST between start and end nodes
+
 export const getShortestPathInMST = (
     mstEdges: Edge[],
     startNode: number,
     endNode: number,
     nodeCount: number
 ): number[] => {
-    // Build adjacency list from MST edges
+    
     const adjList: number[][] = Array.from(
         { length: nodeCount },
         () => [] as number[]
@@ -152,7 +152,7 @@ export const getShortestPathInMST = (
         adjList[edge.target].push(edge.source);
     });
 
-    // BFS to find shortest path
+    
     const queue: number[] = [startNode];
     const visited = new Set<number>([startNode]);
     const parent = new Map<number, number>();
@@ -174,12 +174,12 @@ export const getShortestPathInMST = (
         }
     }
 
-    // Reconstruct path
+    
     const path: number[] = [];
     let current = endNode;
 
     if (!parent.has(endNode)) {
-        return []; // No path exists
+        return []; 
     }
 
     while (current !== startNode) {
