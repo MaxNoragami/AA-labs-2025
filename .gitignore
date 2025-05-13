@@ -568,3 +568,5 @@ codegen-for-zig-team.tar.gz
 scratch*.{js,ts,tsx,cjs,mjs}
 
 *.bun-build
+
+lab3-5/analysis/graphs/
